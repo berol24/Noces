@@ -40,6 +40,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeSync />
         {children}
+        <p className="legal-foot">
+          <a href="/confidentialite">Règles de confidentialité</a>
+        </p>
       </body>
     </html>
   );
