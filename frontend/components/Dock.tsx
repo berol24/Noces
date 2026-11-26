@@ -5,7 +5,7 @@ import { useState } from "react";
 import { IconButton } from "@/components/art";
 import { useAudio } from "@/components/audio";
 import { useWedding } from "@/components/wedding-context";
-import { shareText, shareTitle } from "@/lib/text";
+import { inviteUrl, shareMessage, shareTitle } from "@/lib/text";
 
 export function Dock() {
   const wedding = useWedding();
@@ -15,20 +15,20 @@ export function Dock() {
   const [shareOpen, setShareOpen] = useState(false);
 
   function shareLinks() {
-    const url = window.location.href;
+    const slug = wedding.drive?.slug || pathname.match(/^\/i\/([^/]+)/)?.[1] || "";
+    const url = slug ? inviteUrl(slug) : window.location.href;
     const title = shareTitle(wedding);
-    const text = `${title}\n${shareText(wedding)}\n${url}`;
+    const text = shareMessage(wedding, url);
     return {
       url,
       whatsapp: `https://wa.me/?text=${encodeURIComponent(text)}`,
       mail: `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(text)}`,
-      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
       sms: `sms:?&body=${encodeURIComponent(text)}`,
     };
   }
 
   async function copyLink() {
-    await navigator.clipboard.writeText(window.location.href);
+    await navigator.clipboard.writeText(shareLinks().url);
     setCopied(true);
     setShareOpen(false);
     window.setTimeout(() => setCopied(false), 1800);
@@ -70,7 +70,6 @@ export function Dock() {
         <div className="share-menu">
           <a href={shareLinks().whatsapp} target="_blank" rel="noreferrer">WhatsApp</a>
           <a href={shareLinks().mail}>E-mail</a>
-          <a href={shareLinks().facebook} target="_blank" rel="noreferrer">Facebook</a>
           <a href={shareLinks().sms}>SMS</a>
           <button type="button" onClick={() => void copyLink()}>Copier le lien</button>
         </div>

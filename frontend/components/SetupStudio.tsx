@@ -7,7 +7,7 @@ import { API, api, clearToken, driveFileUrl, ensureAccess, getToken, logoutSessi
 import { ButtonSpinner, PageLoader } from "@/components/Spinner";
 import { applyColors, customPalette, paletteOf } from "@/lib/theme";
 import { blankWedding, designs } from "@/lib/blank";
-import { asTime, ceremonyQuery, inviteUrl, mapUrl, shareText, shareTitle } from "@/lib/text";
+import { asTime, ceremonyQuery, inviteUrl, mapUrl, shareMessage, shareTitle } from "@/lib/text";
 
 type Step = "compte" | "design" | "fiche";
 type Account = { email: string; name: string };
@@ -444,12 +444,11 @@ export function SetupStudio() {
   function shareLinks() {
     const url = inviteUrl(slug);
     const title = shareTitle(draft);
-    const text = `${title}\n${shareText(draft)}\n${url}`;
+    const text = shareMessage(draft, url);
     return {
       url,
       whatsapp: `https://wa.me/?text=${encodeURIComponent(text)}`,
       mail: `mailto:?subject=${encodeURIComponent(title)}&body=${encodeURIComponent(text)}`,
-      facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
       sms: `sms:?&body=${encodeURIComponent(text)}`,
     };
   }
@@ -1028,7 +1027,6 @@ export function SetupStudio() {
               <div className="share-row">
                 <a href={shareLinks().whatsapp} target="_blank" rel="noreferrer">WhatsApp</a>
                 <a href={shareLinks().mail}>E-mail</a>
-                <a href={shareLinks().facebook} target="_blank" rel="noreferrer">Facebook</a>
                 <a href={shareLinks().sms}>SMS</a>
                 <button type="button" onClick={() => void copyInvite()}>Copier le lien</button>
               </div>
@@ -1066,7 +1064,6 @@ export function SetupStudio() {
                 <div className="share-row">
                   <a href={shareLinks().whatsapp} target="_blank" rel="noreferrer">WhatsApp</a>
                   <a href={shareLinks().mail}>E-mail</a>
-                  <a href={shareLinks().facebook} target="_blank" rel="noreferrer">Facebook</a>
                   <a href={shareLinks().sms}>SMS</a>
                   <button type="button" onClick={() => void copyInvite()}>Copier le lien</button>
                 </div>

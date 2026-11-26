@@ -40,11 +40,40 @@ export function pageDescription(data: WeddingConfig = wedding) {
 }
 
 export function shareTitle(data: WeddingConfig = wedding) {
-  return data.seo.shareTitle || `${coupleLine(data)} se marient`;
+  return data.seo.shareTitle || `Mariage de ${coupleLine(data)}`;
 }
 
 export function shareText(data: WeddingConfig = wedding) {
   return data.seo.shareText || `${fullDate(data)} · ${placeLine(data)} · ${familiesLine(data)}`;
+}
+
+export const publishedSite = "https://noces-7hjy.onrender.com";
+
+export function siteOrigin() {
+  if (typeof window !== "undefined") {
+    const host = window.location.hostname;
+    if (host !== "localhost" && host !== "127.0.0.1") return window.location.origin;
+  }
+  return publishedSite;
+}
+
+export function inviteUrl(slug: string) {
+  return `${siteOrigin()}/i/${slug}`;
+}
+
+export function shareMessage(data: WeddingConfig, url: string) {
+  const sentence = data.invitation.trim() || "Nous avons la joie de vous inviter à célébrer notre mariage.";
+  return [
+    `${coupleLine(data)} se marient`,
+    "",
+    sentence,
+    "",
+    fullDate(data),
+    placeLine(data),
+    familiesLine(data),
+    "",
+    url,
+  ].join("\n");
 }
 
 export function footerLine(data: WeddingConfig = wedding) {
@@ -56,11 +85,6 @@ export function asTime(value: string) {
   const match = String(value || "").match(/(\d{1,2})\s*[:hH]\s*(\d{2})/);
   if (!match) return "";
   return `${match[1].padStart(2, "0")}:${match[2]}`;
-}
-
-export function inviteUrl(slug: string) {
-  if (typeof window === "undefined") return `/i/${slug}`;
-  return `${window.location.origin}/i/${slug}`;
 }
 
 export function mapUrl(query: string) {

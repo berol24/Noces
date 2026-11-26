@@ -33,7 +33,7 @@ function SocialIcon({ label }: { label: string }) {
 
 export function Day() {
   const wedding = useWedding();
-  const links = wedding.church.links.filter((link) => link.href);
+  const links = wedding.church.links.filter((link) => link.href && !/facebook/i.test(`${link.label} ${link.href}`));
   const showChurch = wedding.church.enabled && links.length > 0;
 
   return (
