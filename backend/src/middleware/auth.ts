@@ -11,7 +11,7 @@ export function requireAuth(req: AuthRequest, res: Response, next: NextFunction)
   }
   try {
     const payload = jwt.verify(header.slice(7), process.env.JWT_SECRET || "dev-secret");
-    if (typeof payload === "string" || !payload.sub) {
+    if (typeof payload === "string" || !payload.sub || payload.typ === "refresh") {
       res.status(401).json({ error: "Session expirée" });
       return;
     }

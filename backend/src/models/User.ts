@@ -8,6 +8,17 @@ const userSchema = new mongoose.Schema(
     googleRefreshToken: { type: String, default: "", select: false },
     resetTokenHash: { type: String, default: "", select: false },
     resetTokenExpires: { type: Date, select: false },
+    sessions: {
+      type: [
+        {
+          _id: false,
+          hash: { type: String, required: true },
+          expires: { type: Date, required: true },
+        },
+      ],
+      select: false,
+      default: [],
+    },
   },
   { timestamps: true },
 );

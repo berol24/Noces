@@ -1587,16 +1587,74 @@ section { padding: 68px 24px; text-align: center; }
 [data-design="editorial"] .hero-screen .names em { display: block; margin: 6px 0; }
 
 body:has(.setup-account) {
-  --bg: #f7f1e8;
-  --ink: #2a241c;
-  --muted: #6d6458;
-  --accent: #8c4e32;
-  --accent-deep: #a8643c;
-  --leaf: #e4d5c4;
-  --flower: #c98b72;
-  --line: color-mix(in srgb, #a8643c 45%, transparent);
-  background: var(--bg);
+  --bg: #0f1a33;
+  --ink: #ffffff;
+  --muted: #c5cbe0;
+  --accent: #8080c0;
+  --accent-deep: #585c8f;
+  --leaf: #12292f;
+  --flower: #a0a0d0;
+  --line: color-mix(in srgb, #8080c0 48%, transparent);
+  background:
+    radial-gradient(ellipse at 50% -8%, color-mix(in srgb, #8080c0 32%, transparent), transparent 52%),
+    radial-gradient(ellipse at 100% 100%, color-mix(in srgb, #585c8f 22%, transparent), transparent 36%),
+    var(--bg);
   color: var(--ink);
+}
+
+.account-title {
+  font-size: clamp(52px, 12vw, 72px);
+}
+
+.account-card {
+  margin-top: 8px;
+  padding: 22px 22px 26px;
+  border: 1px solid color-mix(in srgb, #8080c0 42%, transparent);
+  background: color-mix(in srgb, #ffffff 5%, #0f1a33);
+  box-shadow: 0 28px 70px rgba(4, 8, 18, 0.35);
+}
+
+.account-card .people {
+  margin-top: 0;
+  padding: 4px;
+  gap: 4px;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, #8080c0 14%, transparent);
+}
+
+.account-card .people button {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+  padding: 12px 8px;
+}
+
+.account-card .people button[aria-pressed="true"] {
+  background: #8080c0;
+  color: #0f1a33;
+}
+
+.account-card .field input {
+  background: color-mix(in srgb, #ffffff 6%, transparent);
+}
+
+.account-card .line-btn {
+  width: 100%;
+  border-color: #8080c0;
+  background: #8080c0;
+  color: #0f1a33;
+  font-weight: 600;
+}
+
+.account-card .line-btn:hover {
+  background: #a0a0d0;
+  color: #0f1a33;
+}
+
+.account-card .warning {
+  color: #f3c7d2;
+  letter-spacing: 0.04em;
+  text-transform: none;
 }
 
 .setup {
@@ -1605,6 +1663,16 @@ body:has(.setup-account) {
   width: min(760px, 100%);
   margin: 0 auto;
   padding: 36px 20px 80px;
+}
+
+.setup.setup-account {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  width: min(460px, 100%);
+  min-height: 100dvh;
+  padding-top: 28px;
+  padding-bottom: 48px;
 }
 
 .setup h2 {

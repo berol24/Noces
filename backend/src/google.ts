@@ -8,7 +8,10 @@ export function oauthClient() {
   return new google.auth.OAuth2(
     process.env.GOOGLE_CLIENT_ID,
     process.env.GOOGLE_CLIENT_SECRET,
-    process.env.GOOGLE_REDIRECT_URI || "http://localhost:4000/api/drive/callback",
+    process.env.GOOGLE_REDIRECT_URI ||
+      (process.env.RENDER_EXTERNAL_URL
+        ? `${process.env.RENDER_EXTERNAL_URL}/api/drive/callback`
+        : "http://localhost:4000/api/drive/callback"),
   );
 }
 

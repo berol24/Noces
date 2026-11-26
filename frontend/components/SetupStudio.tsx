@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { DesignId, WeddingConfig } from "@/wedding.config";
 import { wedding } from "@/wedding.config";
-import { API, api, clearToken, driveFileUrl, getToken, setToken, uploadFiles } from "@/lib/api";
+import { Rings } from "@/components/art";
+import { API, api, clearToken, driveFileUrl, ensureAccess, getToken, logoutSession, setSession, uploadFiles } from "@/lib/api";
 import { applyColors, customPalette, paletteOf } from "@/lib/theme";
 import { blankWedding, designs } from "@/lib/blank";
 import { asTime, ceremonyQuery, inviteUrl, mapUrl, shareText, shareTitle } from "@/lib/text";
@@ -112,7 +113,7 @@ export function SetupStudio() {
   }
 
   function logout() {
-    clearToken();
+    void logoutSession();
     setAccount(null);
     setSlug("");
     setFolderUrl("");
@@ -206,11 +207,11 @@ export function SetupStudio() {
         return;
       }
       const path = mode === "register" ? "/api/auth/register" : "/api/auth/login";
-      const body = await api<{ token: string }>(path, {
+      const body = await api<{ token?: string; accessToken?: string; refreshToken?: string }>(path, {
         method: "POST",
         body: JSON.stringify({ email, password, name }),
       });
-      setToken(body.token);
+      setSession(body);
       await loadSession();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Connexion impossible");
@@ -231,7 +232,7 @@ export function SetupStudio() {
         setError("Ajoutez GOOGLE_CLIENT_ID et GOOGLE_CLIENT_SECRET dans backend/.env, puis redémarrez l'API.");
         return;
       }
-      const token = getToken();
+      const token = await ensureAccess();
       window.location.href = `${API}/api/drive/connect?token=${encodeURIComponent(token || "")}`;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Connexion à Google Drive impossible");
@@ -351,7 +352,7 @@ export function SetupStudio() {
     setError("");
     setMessage("");
     try {
-      const body = await api<{ user: Account }>("/api/auth/me", {
+      const body = await api<{ user: Account; token?: string; accessToken?: string; refreshToken?: string }>("/api/auth/me", {
         method: "PATCH",
         body: JSON.stringify({
           name: profileName,
@@ -359,6 +360,7 @@ export function SetupStudio() {
           ...(profilePassword ? { password: profilePassword } : {}),
         }),
       });
+      setSession(body);
       setAccount(body.user);
       setProfileName(body.user.name || "");
       setProfileEmail(body.user.email);
@@ -448,12 +450,31 @@ export function SetupStudio() {
           )}
         </div>
       ) : null}
-      <p className="kicker">Noces</p>
-      <h1 className="names" style={{ fontSize: 64 }}>Créer l'invitation</h1>
-      <p className="prose">Le design se choisit au départ. La fiche est enregistrée pour votre compte.</p>
+      {step === "compte" ? (
+        <>
+          <p className="kicker">Noces</p>
+          <Rings />
+          <h1 className="names account-title">
+            {resetToken || mode === "forgot" ? "Mot de passe" : mode === "login" ? "Connexion" : "Inscription"}
+          </h1>
+          <p className="prose">
+            {resetToken || mode === "forgot"
+              ? "Choisissez un nouveau mot de passe pour le compte déjà enregistré."
+              : mode === "login"
+                ? "Retrouvez l'invitation enregistrée sur votre compte."
+                : "Un compte pour le couple. L'invitation reste la vôtre."}
+          </p>
+        </>
+      ) : (
+        <>
+          <p className="kicker">Noces</p>
+          <h1 className="names" style={{ fontSize: 64 }}>Créer l'invitation</h1>
+          <p className="prose">Le design se choisit au départ. La fiche est enregistrée pour votre compte.</p>
+        </>
+      )}
 
       {step === "compte" ? (
-        <form onSubmit={submitAccount} className="setup-card">
+        <form onSubmit={submitAccount} className="setup-card account-card">
           {resetToken ? null : (
             <div className="people">
               <button type="button" aria-pressed={mode === "register"} onClick={() => setMode("register")}>Créer un compte</button>
@@ -501,7 +522,7 @@ export function SetupStudio() {
           {error ? <p className="warning">{error}</p> : null}
           {message ? <p className="note">{message}</p> : null}
           <button className="line-btn" type="submit" disabled={busy}>
-            {busy ? "Patientez" : resetToken || mode === "forgot" ? "Changer le mot de passe" : "Continuer"}
+            {busy ? "Patientez" : resetToken || mode === "forgot" ? "Changer le mot de passe" : mode === "login" ? "Se connecter" : "Créer le compte"}
           </button>
         </form>
       ) : null}

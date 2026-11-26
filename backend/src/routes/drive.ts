@@ -191,7 +191,7 @@ driveRouter.get("/connect", (req, res) => {
   const token = typeof req.query.token === "string" ? req.query.token : "";
   try {
     const payload = jwt.verify(token, secret());
-    if (typeof payload === "string" || !payload.sub) throw new Error("bad");
+    if (typeof payload === "string" || !payload.sub || payload.typ === "refresh") throw new Error("bad");
     const state = jwt.sign({ sub: payload.sub, purpose: "drive" }, secret(), { expiresIn: "10m" });
     const url = oauthClient().generateAuthUrl({
       access_type: "offline",

@@ -1,11 +1,11 @@
 import crypto from "node:crypto";
 import { Router } from "express";
 import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
 import { z } from "zod";
 import { mailConfigured, sendResetMail } from "../mail.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 import { User } from "../models/User.js";
+import { issueSession, revokeSession, revokeSessions, rotateSession } from "../tokens.js";
 
 export const authRouter = Router();
 
@@ -14,10 +14,6 @@ const credentials = z.object({
   password: z.string().min(8),
   name: z.string().optional(),
 });
-
-function sign(userId: string) {
-  return jwt.sign({ sub: userId }, process.env.JWT_SECRET || "dev-secret", { expiresIn: "7d" });
-}
 
 authRouter.post("/register", async (req, res) => {
   const parsed = credentials.safeParse(req.body);
@@ -33,8 +29,9 @@ authRouter.post("/register", async (req, res) => {
   }
   const passwordHash = await bcrypt.hash(parsed.data.password, 12);
   const user = await User.create({ email, passwordHash, name: parsed.data.name || "" });
+  const session = await issueSession(String(user._id));
   res.status(201).json({
-    token: sign(String(user._id)),
+    ...session,
     user: { id: user._id, email: user.email, name: user.name },
   });
 });
@@ -77,9 +74,13 @@ authRouter.patch("/me", requireAuth, async (req: AuthRequest, res) => {
       user.email = email;
     }
   }
-  if (parsed.data.password) user.passwordHash = await bcrypt.hash(parsed.data.password, 12);
+  if (parsed.data.password) {
+    user.passwordHash = await bcrypt.hash(parsed.data.password, 12);
+    await revokeSessions(String(user._id));
+  }
   await user.save();
-  res.json({ user: { email: user.email, name: user.name } });
+  const session = parsed.data.password ? await issueSession(String(user._id)) : {};
+  res.json({ ...session, user: { email: user.email, name: user.name } });
 });
 
 authRouter.post("/login", async (req, res) => {
@@ -93,10 +94,31 @@ authRouter.post("/login", async (req, res) => {
     res.status(401).json({ error: "Email ou mot de passe incorrect" });
     return;
   }
+  const session = await issueSession(String(user._id));
   res.json({
-    token: sign(String(user._id)),
+    ...session,
     user: { id: user._id, email: user.email, name: user.name },
   });
+});
+
+authRouter.post("/refresh", async (req, res) => {
+  const refreshToken = String(req.body?.refreshToken || "");
+  if (!refreshToken) {
+    res.status(401).json({ error: "Session expirée" });
+    return;
+  }
+  try {
+    const session = await rotateSession(refreshToken);
+    res.json(session);
+  } catch {
+    res.status(401).json({ error: "Session expirée" });
+  }
+});
+
+authRouter.post("/logout", async (req, res) => {
+  const refreshToken = String(req.body?.refreshToken || "");
+  if (refreshToken) await revokeSession(refreshToken);
+  res.json({ ok: true });
 });
 
 authRouter.post("/forgot", async (req, res) => {
@@ -151,6 +173,7 @@ authRouter.post("/password", async (req, res) => {
   user.passwordHash = await bcrypt.hash(parsed.data.password, 12);
   user.set("resetTokenHash", "");
   user.set("resetTokenExpires", null);
+  user.set("sessions", []);
   await user.save();
   res.json({ ok: true });
 });
@@ -179,6 +202,7 @@ authRouter.post("/reset", async (req, res) => {
   user.passwordHash = await bcrypt.hash(parsed.data.password, 12);
   user.set("resetTokenHash", "");
   user.set("resetTokenExpires", null);
+  user.set("sessions", []);
   await user.save();
   res.json({ ok: true });
 });
