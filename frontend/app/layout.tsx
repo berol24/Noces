@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import { wedding } from "@/wedding.config";
-import { pageDescription, pageTitle, shareText, shareTitle, siteUrl } from "@/lib/text";
+import { siteUrl } from "@/lib/text";
 import { ThemeSync } from "@/components/ThemeSync";
 import { colorsFor, themeStyle } from "@/lib/theme";
 import "./globals.css";
@@ -22,13 +22,13 @@ const url = siteUrl();
 
 export const metadata: Metadata = {
   metadataBase: url ?? undefined,
-  title: pageTitle(),
-  description: pageDescription(),
+  title: "Noces",
+  description: "Créez et partagez l'invitation de votre mariage.",
   openGraph: {
-    title: shareTitle(),
-    description: shareText(),
+    title: "Noces",
+    description: "Créez et partagez l'invitation de votre mariage.",
     locale: wedding.seo.locale,
-    siteName: pageTitle(),
+    siteName: "Noces",
     type: "website",
     url: url?.toString(),
   },
