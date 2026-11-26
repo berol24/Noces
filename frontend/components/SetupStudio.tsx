@@ -279,10 +279,10 @@ export function SetupStudio() {
   }
 
   function patchSlot(key: string, patch: Partial<{ name: string; progress: number | null; error: string }>) {
-    setSlots((current) => ({
-      ...current,
-      [key]: { name: "", progress: null, error: "", ...current[key], ...patch },
-    }));
+    setSlots((current) => {
+      const previous = current[key] ?? { name: "", progress: null, error: "" };
+      return { ...current, [key]: { ...previous, ...patch } };
+    });
   }
 
   function clearSlot(key: string) {
