@@ -48,6 +48,7 @@ export function Closing() {
           <p className="families" style={{ marginTop: 28 }}>{wedding.families.filter(Boolean).join(" · ")}</p>
           <p className="footer-line">{footerLine(wedding)}</p>
         </Reveal>
+        <OwnWedding />
       </footer>
     </>
   );

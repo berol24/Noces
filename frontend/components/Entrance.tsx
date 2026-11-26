@@ -85,6 +85,7 @@ export function Entrance({
           ↑
         </span>
         <p className="hint">Cliquez ici</p>
+        <OwnWedding />
       </div>
     </div>
   );
