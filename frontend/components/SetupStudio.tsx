@@ -484,6 +484,42 @@ export function SetupStudio() {
     );
   }
 
+  function FilePick({
+    label,
+    hint,
+    accept = "image/*",
+    multiple = false,
+    onPick,
+  }: {
+    label: string;
+    hint?: string;
+    accept?: string;
+    multiple?: boolean;
+    onPick: (files: FileList | null) => void;
+  }) {
+    const locked = busy || (driveConnected && !slug);
+    return (
+      <label className={locked ? "file-pick is-disabled" : "file-pick"}>
+        <input
+          type="file"
+          accept={accept}
+          multiple={multiple}
+          disabled={locked}
+          onClick={askDrive}
+          onChange={(event) => {
+            onPick(event.target.files);
+            event.currentTarget.value = "";
+          }}
+        />
+        <span className="file-pick-mark" aria-hidden="true">{accept.startsWith("audio") ? "♪" : "+"}</span>
+        <span className="file-pick-copy">
+          <strong>{label}</strong>
+          <em>{hint || (accept.startsWith("audio") ? "Choisir un morceau" : multiple ? "Ajouter des photos" : "Choisir une photo")}</em>
+        </span>
+      </label>
+    );
+  }
+
   if (booting) return <PageLoader account />;
 
   return (
@@ -560,7 +596,7 @@ export function SetupStudio() {
       ) : (
         <>
           <p className="brand" aria-label="Noces">N<span className="brand-o">o<span className="brand-rings" aria-hidden="true" /></span>ces</p>
-          <h1 className="names" style={{ fontSize: 64 }}>Créer l'invitation</h1>
+          <h1 className="names account-title">Créer l'invitation</h1>
           <p className="prose">Le design se choisit au départ. La fiche est enregistrée pour votre compte.</p>
         </>
       )}
@@ -687,22 +723,24 @@ export function SetupStudio() {
           <p className="note">
             Reliez votre Google Drive pour les photos et la musique du site (photo d'arrivée, galerie, textes). L'album des invités, lui, est un album Google Photos partagé, plus bas.
           </p>
-          <button className="line-btn" type="button" onClick={() => void connectDrive()} disabled={busy}>
-            {driveConnected ? "Changer de compte Google" : "Connecter mon Google Drive"}
-          </button>
-          {driveConnected ? (
-            <>
-              <p className="note">
-                {folderUrl
-                  ? `Drive lié. Dossier de ce mariage : ${folderUrl}`
-                  : slug
-                    ? "Drive lié. Enregistrez la fiche pour créer le dossier de ce mariage."
-                    : "Drive lié. Enregistrez la fiche, puis les fichiers iront dans votre Drive."}
-              </p>
+          <div className="action-row">
+            <button className="line-btn" type="button" onClick={() => void connectDrive()} disabled={busy}>
+              {driveConnected ? "Changer de compte Google" : "Connecter mon Google Drive"}
+            </button>
+            {driveConnected ? (
               <button className="line-btn" type="button" onClick={() => void disconnectDrive()} disabled={busy}>
                 Supprimer le lien
               </button>
-            </>
+            ) : null}
+          </div>
+          {driveConnected ? (
+            <p className="note">
+              {folderUrl
+                ? `Drive lié. Dossier de ce mariage : ${folderUrl}`
+                : slug
+                  ? "Drive lié. Enregistrez la fiche pour créer le dossier de ce mariage."
+                  : "Drive lié. Enregistrez la fiche, puis les fichiers iront dans votre Drive."}
+            </p>
           ) : (
             <p className="warning">Sans Drive, les photos et la musique du site ne peuvent pas être enregistrées.</p>
           )}
@@ -761,9 +799,10 @@ export function SetupStudio() {
 
           <h2>Photo d'arrivée</h2>
           <p className="note">Elle apparaît sur le premier écran, avant d'entrer dans la cérémonie. Vous pouvez la remplacer.</p>
-          <label className="field">Photo
-            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne("entrance", event.target.files?.[0], (url) => setDraft((current) => ({ ...current, entrance: { ...current.entrance, photo: url } }))); event.target.value = ""; }} />
-          </label>
+          <FilePick
+            label="Photo d'arrivée"
+            onPick={(files) => { void uploadOne("entrance", files?.[0], (url) => setDraft((current) => ({ ...current, entrance: { ...current.entrance, photo: url } }))); }}
+          />
           <FileSlot id="entrance" onRemove={() => setDraft({ ...draft, entrance: { ...draft.entrance, photo: "" } })} />
           {draft.entrance.photo ? (
             <div className="photo-edit">
@@ -777,9 +816,10 @@ export function SetupStudio() {
           <label className="field">Phrase du faire-part
             <textarea rows={3} value={draft.invitation} onChange={(event) => setDraft({ ...draft, invitation: event.target.value })} />
           </label>
-          <label className="field">Photo de la phrase
-            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne("invitation", event.target.files?.[0], (url) => setDraft((current) => ({ ...current, invitationPhoto: url }))); event.target.value = ""; }} />
-          </label>
+          <FilePick
+            label="Photo de la phrase"
+            onPick={(files) => { void uploadOne("invitation", files?.[0], (url) => setDraft((current) => ({ ...current, invitationPhoto: url }))); }}
+          />
           <FileSlot id="invitation" onRemove={() => setDraft({ ...draft, invitationPhoto: "" })} />
           {draft.invitationPhoto ? (
             <div className="photo-edit">
@@ -793,9 +833,10 @@ export function SetupStudio() {
           <label className="field">Texte du marié
             <textarea rows={3} value={draft.story.passages[0]?.text || ""} onChange={(event) => updatePassage(0, { text: event.target.value })} />
           </label>
-          <label className="field">Photo du marié
-            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne("story-0", event.target.files?.[0], (url) => setDraft((current) => ({ ...current, story: { ...current.story, passages: current.story.passages.map((item, index) => index === 0 ? { ...item, photo: url } : item) } }))); event.target.value = ""; }} />
-          </label>
+          <FilePick
+            label="Photo du marié"
+            onPick={(files) => { void uploadOne("story-0", files?.[0], (url) => setDraft((current) => ({ ...current, story: { ...current.story, passages: current.story.passages.map((item, index) => index === 0 ? { ...item, photo: url } : item) } }))); }}
+          />
           <FileSlot id="story-0" onRemove={() => updatePassage(0, { photo: "" })} />
           {draft.story.passages[0]?.photo ? (
             <div className="photo-edit">
@@ -809,9 +850,10 @@ export function SetupStudio() {
           <label className="field">Texte de la mariée
             <textarea rows={3} value={draft.story.passages[1]?.text || ""} onChange={(event) => updatePassage(1, { text: event.target.value })} />
           </label>
-          <label className="field">Photo de la mariée
-            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne("story-1", event.target.files?.[0], (url) => setDraft((current) => ({ ...current, story: { ...current.story, passages: current.story.passages.map((item, index) => index === 1 ? { ...item, photo: url } : item) } }))); event.target.value = ""; }} />
-          </label>
+          <FilePick
+            label="Photo de la mariée"
+            onPick={(files) => { void uploadOne("story-1", files?.[0], (url) => setDraft((current) => ({ ...current, story: { ...current.story, passages: current.story.passages.map((item, index) => index === 1 ? { ...item, photo: url } : item) } }))); }}
+          />
           <FileSlot id="story-1" onRemove={() => updatePassage(1, { photo: "" })} />
           {draft.story.passages[1]?.photo ? (
             <div className="photo-edit">
@@ -825,9 +867,10 @@ export function SetupStudio() {
           <label className="field">Référence du verset
             <input value={draft.verse.reference} onChange={(event) => setDraft({ ...draft, verse: { ...draft.verse, reference: event.target.value } })} />
           </label>
-          <label className="field">Photo du verset
-            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne("verse", event.target.files?.[0], (url) => setDraft((current) => ({ ...current, verse: { ...current.verse, photo: url } }))); event.target.value = ""; }} />
-          </label>
+          <FilePick
+            label="Photo du verset"
+            onPick={(files) => { void uploadOne("verse", files?.[0], (url) => setDraft((current) => ({ ...current, verse: { ...current.verse, photo: url } }))); }}
+          />
           <FileSlot id="verse" onRemove={() => setDraft({ ...draft, verse: { ...draft.verse, photo: "" } })} />
           {draft.verse.photo ? (
             <div className="photo-edit">
@@ -838,7 +881,7 @@ export function SetupStudio() {
 
           <h2>Programme</h2>
           {draft.program.items.map((item, index) => (
-            <div className="setup-grid" key={`program-${index}`}>
+            <div className="setup-grid setup-card" key={`program-${index}`}>
               <label className="field">Heure
                 <input type="time" value={asTime(item.time)} onChange={(event) => updateProgram(index, { time: event.target.value })} />
               </label>
@@ -897,9 +940,10 @@ export function SetupStudio() {
               ? "Ces photos s'affichent sur l'invitation et sont stockées dans votre Drive. Indiquez le lieu sous chacune. Vous pouvez les remplacer."
               : "Connectez votre Google Drive et enregistrez la fiche, puis ajoutez les photos. Chaque couple a son propre dossier."}
           </p>
-          <label className="field">Photo principale
-            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne("hero", event.target.files?.[0], (url) => setDraft((current) => ({ ...current, photos: { ...current.photos, hero: { src: url, alt: "Photo du couple" } } }))); event.target.value = ""; }} />
-          </label>
+          <FilePick
+            label="Photo principale"
+            onPick={(files) => { void uploadOne("hero", files?.[0], (url) => setDraft((current) => ({ ...current, photos: { ...current.photos, hero: { src: url, alt: "Photo du couple" } } }))); }}
+          />
           <FileSlot id="hero" onRemove={() => setDraft({ ...draft, photos: { ...draft.photos, hero: { src: "", alt: "" } } })} />
           {draft.photos.hero.src ? (
             <div className="photo-edit">
@@ -907,9 +951,11 @@ export function SetupStudio() {
               <button className="text-link" type="button" onClick={() => setDraft({ ...draft, photos: { ...draft.photos, hero: { src: "", alt: "" } } })}>Supprimer</button>
             </div>
           ) : null}
-          <label className="field">Autres photos
-            <input type="file" accept="image/*" multiple disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void addGallery(event.target.files); event.target.value = ""; }} />
-          </label>
+          <FilePick
+            label="Autres photos"
+            multiple
+            onPick={(files) => { void addGallery(files); }}
+          />
           <FileSlot id="gallery" />
           {draft.photos.gallery.map((photo, index) => photo.src ? (
             <div className="photo-edit" key={`${photo.src}-${index}`}>
@@ -917,9 +963,11 @@ export function SetupStudio() {
               <label className="field">Lieu de la photo
                 <input value={photo.place || ""} onChange={(event) => updateGallery(index, event.target.value)} />
               </label>
-              <label className="field">Remplacer
-                <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne(`gallery-${index}`, event.target.files?.[0], (url) => replaceGallery(index, url)); event.target.value = ""; }} />
-              </label>
+              <FilePick
+                label="Remplacer"
+                hint="Choisir une autre photo"
+                onPick={(files) => { void uploadOne(`gallery-${index}`, files?.[0], (url) => replaceGallery(index, url)); }}
+              />
               <FileSlot id={`gallery-${index}`} />
               <button className="text-link" type="button" onClick={() => removeGallery(index)}>Supprimer</button>
             </div>
@@ -951,9 +999,11 @@ export function SetupStudio() {
 
           <h2>Musique de fond</h2>
           <p className="note">Le fichier est enregistré dans votre Google Drive. Connectez d'abord votre compte Google. Vous pouvez le remplacer. Sur l'invitation, lecture et pause sont à gauche.</p>
-          <label className="field">Fichier musical
-            <input type="file" accept="audio/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne("music", event.target.files?.[0], (url) => setDraft((current) => ({ ...current, music: { ...current.music, background: { enabled: true, src: url } } })), "musique"); event.target.value = ""; }} />
-          </label>
+          <FilePick
+            label="Fichier musical"
+            accept="audio/*"
+            onPick={(files) => { void uploadOne("music", files?.[0], (url) => setDraft((current) => ({ ...current, music: { ...current.music, background: { enabled: true, src: url } } })), "musique"); }}
+          />
           <FileSlot id="music" onRemove={() => setDraft({ ...draft, music: { ...draft.music, background: { enabled: false, src: "" } } })} />
           {draft.music.background.src ? (
             <div className="music-actions">
