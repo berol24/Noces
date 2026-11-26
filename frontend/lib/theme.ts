@@ -13,6 +13,22 @@ export function themeStyle(colors: WeddingColors): CSSProperties {
   } as CSSProperties;
 }
 
+export const shellColors: WeddingColors = {
+  background: "#0f1a33",
+  text: "#ffffff",
+  muted: "#c5cbe0",
+  accent: "#8080c0",
+  accentDeep: "#585c8f",
+  leaf: "#12292f",
+  flower: "#a0a0d0",
+};
+
+export function rootThemeCss(colors: WeddingColors) {
+  return `:root{${Object.entries(themeStyle(colors))
+    .map(([key, value]) => `${key}:${value}`)
+    .join(";")}}`;
+}
+
 export function colorsFor(choice = wedding.colorChoice): WeddingColors {
   if (choice === "personnalise") return wedding.colors;
   return wedding.themes.find((theme) => theme.id === choice)?.colors ?? wedding.colors;

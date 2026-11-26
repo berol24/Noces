@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { WeddingConfig } from "@/wedding.config";
 import { Rings } from "@/components/art";
+import { PageLoader } from "@/components/Spinner";
 import { API, api, driveFileUrl, uploadFiles } from "@/lib/api";
 import { applyColors, paletteOf } from "@/lib/theme";
 import { coupleLine } from "@/lib/text";
@@ -186,7 +187,7 @@ export function Album({ slug }: { slug: string }) {
     }
   }
 
-  if (!wedding) return <p className="setup">{error || "Chargement de l'album…"}</p>;
+  if (!wedding) return error ? <p className="setup">{error}</p> : <PageLoader />;
 
   return (
     <main className="album">

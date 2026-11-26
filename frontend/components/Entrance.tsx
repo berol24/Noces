@@ -5,6 +5,7 @@ import { useWedding } from "@/components/wedding-context";
 import { DiamondRule, Leaves, Monogram, Rings } from "@/components/art";
 import { useAudio } from "@/components/audio";
 import { familiesLine } from "@/lib/text";
+import { OwnWedding } from "@/components/OwnWedding";
 
 export function Entrance({
   onEnter,

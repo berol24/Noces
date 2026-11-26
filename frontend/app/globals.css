@@ -6,11 +6,18 @@
 
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  max-width: 100%;
+  overflow-x: clip;
+}
 
 body {
   margin: 0;
+  width: 100%;
+  max-width: 100%;
   min-height: 100vh;
+  min-height: 100svh;
   overflow-x: clip;
   background:
     radial-gradient(ellipse at 50% -10%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 46%),
@@ -62,6 +69,152 @@ section { padding: 68px 24px; text-align: center; }
   font-size: 12px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+body:has(.spin-page) .legal-foot {
+  display: none;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.spin-page {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(ellipse at 50% 42%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 48%),
+    var(--bg);
+}
+
+.spin-account {
+  --bg: #0f1a33;
+  --accent: #8080c0;
+  --flower: #a0a0d0;
+  background:
+    radial-gradient(ellipse at 50% 38%, color-mix(in srgb, #8080c0 34%, transparent), transparent 50%),
+    #0f1a33;
+}
+
+.spin-mark {
+  position: relative;
+  width: 128px;
+  height: 96px;
+}
+
+.spin-mark i {
+  position: absolute;
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--accent) 42%, transparent);
+  border-top-color: var(--ink);
+  border-right-color: var(--accent);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 35%, transparent);
+  animation: spin-turn 1.05s linear infinite;
+}
+
+.spin-mark i:first-child { left: 8px; top: 16px; }
+
+.spin-mark i:last-child {
+  right: 8px;
+  top: 8px;
+  animation-duration: 1.45s;
+  animation-direction: reverse;
+  border-top-color: var(--flower);
+  border-left-color: var(--ink);
+}
+
+.spin-dot {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, currentColor 32%, transparent);
+  border-top-color: currentColor;
+  animation: spin-turn 0.7s linear infinite;
+}
+
+@keyframes spin-turn {
+  to { transform: rotate(360deg); }
+}
+
+.account-card .spin-dot {
+  width: 20px;
+  height: 20px;
+  border-width: 2.5px;
+  border-color: color-mix(in srgb, #0f1a33 22%, transparent);
+  border-top-color: #0f1a33;
+}
+
+.install-banner {
+  position: fixed;
+  z-index: 50;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: min(420px, calc(100% - 24px));
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--ink) 16%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  color: var(--ink);
+  box-shadow: 0 18px 40px color-mix(in srgb, black 28%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.install-banner p {
+  margin: 0;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 22px;
+  line-height: 1.15;
+}
+
+.install-hint {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.install-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.install-later,
+.install-go {
+  border-radius: 999px;
+  padding: 10px 16px;
+  cursor: pointer;
+}
+
+.install-later {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.install-go {
+  border: 0;
+  background: var(--accent);
+  color: var(--bg);
 }
 
 .kicker {
@@ -371,7 +524,7 @@ section { padding: 68px 24px; text-align: center; }
 .save-popup {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 80;
   display: grid;
   place-items: center;
   padding: 24px;
@@ -530,9 +683,10 @@ section { padding: 68px 24px; text-align: center; }
   inset: 0;
   z-index: 30;
   display: grid;
-  place-items: center;
+  place-items: safe center;
   padding: 28px 20px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   background: transparent;
 }
 
@@ -665,10 +819,11 @@ section { padding: 68px 24px; text-align: center; }
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  width: 100vw;
+  width: 100%;
+  max-width: 100%;
   min-height: 100vh;
-  min-height: 100dvh;
-  margin-left: calc(50% - 50vw);
+  min-height: 100svh;
+  margin: 0;
   padding: calc(22px + env(safe-area-inset-top)) 22px calc(26px + env(safe-area-inset-bottom));
   overflow: hidden;
   text-align: center;
@@ -1374,6 +1529,31 @@ section { padding: 68px 24px; text-align: center; }
   text-transform: uppercase;
 }
 
+.own-wedding {
+  position: relative;
+  z-index: 4;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  width: min(420px, 100%);
+  margin: 36px auto 8px;
+  padding: 0 16px;
+}
+
+.own-wedding a {
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--ink) 28%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  color: var(--ink);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  backdrop-filter: blur(10px);
+  white-space: nowrap;
+}
+
 .dock {
   position: fixed;
   z-index: 6;
@@ -1420,27 +1600,56 @@ section { padding: 68px 24px; text-align: center; }
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  width: min(480px, calc(100% - 24px));
+  width: min(560px, calc(100% - 32px));
   margin: 16px auto 0;
 }
 
-.poster-wrap { padding: 12px 0 40px; }
+.sheet {
+  min-height: 100svh;
+  background:
+    radial-gradient(ellipse at 50% -10%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 46%),
+    var(--bg);
+  color: var(--ink);
+}
+
+.poster-wrap { padding: 8px 0 48px; }
+
+.poster-plate {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.poster > :not(.poster-plate) {
+  position: relative;
+  z-index: 1;
+}
+
+.swatch-dot {
+  display: block;
+  width: 54px;
+  height: 54px;
+  margin: 0 auto 10px;
+}
 
 .poster {
   position: relative;
-  width: min(440px, calc(100% - 36px));
-  margin: 18px auto;
-  padding: 36px 26px 32px;
-  border: 1px solid var(--line);
-  outline: 1px solid var(--line);
-  outline-offset: 7px;
+  width: min(560px, calc(100% - 32px));
+  margin: 12px auto;
+  padding: 48px 28px 40px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
   text-align: center;
-  background:
-    radial-gradient(circle at 50% 0%, color-mix(in srgb, var(--leaf) 55%, transparent), transparent 46%),
-    var(--bg);
+  background: color-mix(in srgb, var(--bg) 88%, black);
+  color: var(--ink);
 }
 
-.poster .names { font-size: 58px; }
+.poster .names {
+  font-size: clamp(48px, 12vw, 76px);
+  overflow-wrap: anywhere;
+}
 .poster .invite {
   margin: 8px auto 0;
   max-width: 28em;
@@ -1452,15 +1661,53 @@ section { padding: 68px 24px; text-align: center; }
 }
 
 .poster-photo {
-  width: 168px;
-  height: 168px;
+  width: min(220px, 70%);
+  height: auto;
+  aspect-ratio: 1;
   margin: 8px auto 0;
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 50%;
 }
 
-.poster-photo img { width: 100%; height: 100%; object-fit: cover; }
+.poster .venue {
+  text-align: center;
+}
+
+.poster .venue .place {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.poster-photo .frame-fallback {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  font-size: 16px;
+}
+
+.file-slot { margin-top: 10px; }
+
+.file-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 8px 0 0;
+  color: var(--ink);
+  font-size: 14px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.file-name span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-name .text-link { margin-top: 0; flex: none; }
 
 .reveal { opacity: 0; }
 .reveal.from-up { transform: translateY(28px); }
@@ -1523,7 +1770,9 @@ section { padding: 68px 24px; text-align: center; }
 .entrance .arrow { animation: bob 1.8s ease-in-out infinite; }
 
 .line-btn { transition: background 0.35s ease, color 0.35s ease, transform 0.35s ease; }
-.line-btn:hover { transform: translateY(-2px); }
+@media (hover: hover) and (pointer: fine) {
+  .line-btn:hover { transform: translateY(-2px); }
+}
 
 @keyframes rise-in {
   from { opacity: 0; transform: translateY(22px); }
@@ -1634,6 +1883,9 @@ section { padding: 68px 24px; text-align: center; }
 [data-design="editorial"] .hero-screen .names em { display: block; margin: 6px 0; }
 
 body:has(.setup-account) {
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
   --bg: #0f1a33;
   --ink: #ffffff;
   --muted: #c5cbe0;
@@ -1714,18 +1966,31 @@ body:has(.setup-account) {
 
 .setup.setup-account {
   display: flex;
+  flex: 1 0 auto;
   flex-direction: column;
   justify-content: center;
   width: min(460px, 100%);
-  min-height: 100dvh;
-  padding-top: 28px;
-  padding-bottom: 48px;
+  min-height: 0;
+  padding-top: calc(20px + env(safe-area-inset-top));
+  padding-bottom: 24px;
 }
 
-.setup h2 {
-  margin: 36px 0 0;
+body:has(.setup-account) .legal-foot {
+  margin-top: auto;
+  padding-top: 8px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+
+.setup:not(.setup-account) {
+  width: min(720px, 100%);
+}
+
+.setup:not(.setup-account) h2 {
+  margin-top: 40px;
+  padding-top: 28px;
+  border-top: 1px solid var(--line);
   font-family: var(--font-serif), Georgia, serif;
-  font-size: 32px;
+  font-size: clamp(26px, 6vw, 32px);
   font-weight: 500;
 }
 
@@ -1783,11 +2048,13 @@ body:has(.setup-account) {
 .field input,
 .field textarea,
 .field select {
+  width: 100%;
+  max-width: 100%;
   border: 1px solid var(--line);
   background: transparent;
   color: var(--ink);
   padding: 10px 12px;
-  font-size: 15px;
+  font-size: 16px;
   letter-spacing: 0;
   text-transform: none;
 }
@@ -1859,10 +2126,91 @@ body:has(.setup-account) {
 @media (max-width: 640px) {
   .setup-grid,
   .design-grid { grid-template-columns: 1fr; }
+  .names,
+  .hero-screen .names,
+  [data-design="editorial"] .names {
+    font-size: clamp(40px, 14vw, 64px);
+    overflow-wrap: anywhere;
+  }
+  .brand { font-size: clamp(52px, 18vw, 80px); }
+  .account-title { font-size: clamp(36px, 11vw, 56px); }
+  .hero-screen { padding-left: 16px; padding-right: 16px; }
+  .hero-screen .date-lockup strong { font-size: clamp(36px, 14vw, 56px); }
+  .families,
+  .kicker { letter-spacing: 0.12em; }
+  .city { letter-spacing: 0.16em; }
+  section { padding: 52px 16px; }
+  .setup { padding-left: 16px; padding-right: 16px; }
+  .account-card { padding: 16px 14px 20px; }
+  .account-card .people button {
+    padding: 12px 6px;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .side-flower.left { left: 4px; }
+  .side-flower.right { right: 4px; }
+  .poster { width: calc(100% - 24px); padding: 32px 16px 28px; }
+  .page-tools { flex-direction: column; width: calc(100% - 24px); }
+  .file-name { align-items: flex-start; }
+  .profile-btn {
+    top: calc(12px + env(safe-area-inset-top));
+    right: calc(12px + env(safe-area-inset-right));
+  }
+  .profile-panel { width: min(280px, calc(100% - 36px)); }
+  .boxes span { font-size: 32px; min-width: 18px; }
+  .digits { gap: 4px; }
+  .colon { font-size: 24px; }
+  .footer .names { font-size: 40px; }
 }
 
 @media print {
-  .no-print { display: none !important; }
-  .poster { outline: none; margin: 0 auto; }
-  body { background: var(--bg); }
+  .no-print,
+  .page-tools,
+  .legal-foot,
+  .install-banner,
+  .own-wedding,
+  .dock,
+  nextjs-portal {
+    display: none !important;
+  }
+
+  html, body, .sheet, .poster, .poster-plate, .swatch-dot {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  html, body {
+    margin: 0 !important;
+    background: var(--bg) !important;
+    color: var(--ink) !important;
+  }
+
+  .sheet { min-height: 0; background: var(--bg) !important; }
+  .poster-wrap { padding: 0; }
+
+  .poster {
+    width: min(560px, 100%);
+    margin: 0 auto;
+    background: var(--bg) !important;
+    color: var(--ink) !important;
+    box-shadow: none;
+    break-inside: avoid;
+  }
+
+  .poster .kicker,
+  .poster .when,
+  .poster .venue h3,
+  .poster .names em { color: var(--accent) !important; }
+
+  .poster .invite,
+  .poster .address,
+  .poster .swatch span,
+  .poster .footer-line { color: var(--muted) !important; }
+
+  .poster .names,
+  .poster .place,
+  .poster .families { color: var(--ink) !important; }
+
+  @page { size: A4; margin: 12mm; }
 }

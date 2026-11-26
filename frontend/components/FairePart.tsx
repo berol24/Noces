@@ -1,15 +1,18 @@
 "use client";
 
 import { useWedding } from "@/components/wedding-context";
-import { DiamondRule, Monogram } from "@/components/art";
+import { Monogram } from "@/components/art";
 import { Frame } from "@/components/Frame";
 import { coupleLine, familiesLine, fullDate, numericDate } from "@/lib/text";
+import { mixHex, paletteOf } from "@/lib/theme";
 
 export function FairePart() {
   const wedding = useWedding();
   const { bride, groom, nameOrder, monogram } = wedding.couple;
   const first = nameOrder === "groom-bride" ? groom : bride;
   const second = nameOrder === "groom-bride" ? bride : groom;
+  const colors = paletteOf(wedding);
+  const line = mixHex(colors.accentDeep, colors.background, 0.45);
 
   if (wedding.fairePart.image) {
     return (
@@ -20,7 +23,10 @@ export function FairePart() {
   }
 
   return (
-    <article className="poster">
+    <article className="poster" style={{ background: colors.background, color: colors.text }}>
+      <svg className="poster-plate" aria-hidden="true" preserveAspectRatio="none">
+        <rect width="100%" height="100%" fill={colors.background} stroke={line} />
+      </svg>
       <p className="kicker">· Save the date ·</p>
       {wedding.photos.hero.src ? (
         <div className="poster-photo">
@@ -35,7 +41,6 @@ export function FairePart() {
         {second.firstName}
       </h1>
       <p className="families">{familiesLine(wedding)}</p>
-      <DiamondRule />
       <p className="when">
         {fullDate(wedding)} · {wedding.date.city}
       </p>
@@ -53,7 +58,9 @@ export function FairePart() {
           <div className="swatches">
             {wedding.dressCode.colors.map((color) => (
               <div className="swatch" key={color.name}>
-                <b style={{ background: color.hex }} />
+                <svg className="swatch-dot" viewBox="0 0 54 54" width="54" height="54" aria-hidden="true">
+                  <circle cx="27" cy="27" r="26" fill={color.hex} />
+                </svg>
                 <span>{color.name}</span>
               </div>
             ))}

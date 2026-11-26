@@ -4,6 +4,7 @@ import { useWedding } from "@/components/wedding-context";
 import { SectionHeading } from "@/components/art";
 import { Reveal } from "@/components/Reveal";
 import { coupleLine, footerLine, numericDate } from "@/lib/text";
+import { OwnWedding } from "@/components/OwnWedding";
 
 export function Closing() {
   const wedding = useWedding();

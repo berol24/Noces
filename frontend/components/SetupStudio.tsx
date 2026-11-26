@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { DesignId, WeddingConfig } from "@/wedding.config";
 import { wedding } from "@/wedding.config";
 import { API, api, clearToken, driveFileUrl, ensureAccess, getToken, logoutSession, setSession, uploadFiles } from "@/lib/api";
+import { ButtonSpinner, PageLoader } from "@/components/Spinner";
 import { applyColors, customPalette, paletteOf } from "@/lib/theme";
 import { blankWedding, designs } from "@/lib/blank";
 import { asTime, ceremonyQuery, inviteUrl, mapUrl, shareText, shareTitle } from "@/lib/text";
@@ -69,6 +70,7 @@ export function SetupStudio() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [booting, setBooting] = useState(true);
   const [driveConnected, setDriveConnected] = useState(false);
   const [account, setAccount] = useState<Account | null>(null);
   const [folderUrl, setFolderUrl] = useState("");
@@ -78,6 +80,8 @@ export function SetupStudio() {
   const [profileEmail, setProfileEmail] = useState("");
   const [profilePassword, setProfilePassword] = useState("");
   const [popup, setPopup] = useState("");
+  const [drivePrompt, setDrivePrompt] = useState<"photo" | "musique" | "">("");
+  const [slots, setSlots] = useState<Record<string, { name: string; progress: number | null; error: string }>>({});
   const [copied, setCopied] = useState(false);
   const musicRef = useRef<HTMLAudioElement>(null);
 
@@ -140,6 +144,8 @@ export function SetupStudio() {
       setError(params.get("message") || "Google Drive n'a pas pu être connecté.");
     }
     if (params.get("profil") === "1") setProfileOpen(true);
+    if (params.get("compte") === "login") setMode("login");
+    if (params.get("compte") === "creer") setMode("register");
     const reset = params.get("reset");
     if (reset) {
       setResetToken(reset);
@@ -149,14 +155,28 @@ export function SetupStudio() {
   }, []);
 
   useEffect(() => {
-    if (!getToken()) return;
-    loadSession().catch(() => {
-      clearToken();
-      setAccount(null);
-    });
-    api<{ configured: boolean; connected: boolean }>("/api/drive/status")
-      .then((body) => setDriveConnected(body.connected))
-      .catch(() => setDriveConnected(false));
+    let alive = true;
+    const compte = new URLSearchParams(window.location.search).get("compte");
+    if (!getToken() || compte === "login" || compte === "creer") {
+      setBooting(false);
+      return;
+    }
+    Promise.all([
+      loadSession(),
+      api<{ configured: boolean; connected: boolean }>("/api/drive/status")
+        .then((body) => setDriveConnected(body.connected))
+        .catch(() => setDriveConnected(false)),
+    ])
+      .catch(() => {
+        clearToken();
+        setAccount(null);
+      })
+      .finally(() => {
+        if (alive) setBooting(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -223,10 +243,24 @@ export function SetupStudio() {
     setDraft((current) => ({ ...current, designId: id }));
   }
 
+  async function disconnectDrive() {
+    setBusy(true);
+    setError("");
+    try {
+      await api("/api/drive/disconnect", { method: "DELETE" });
+      setDriveConnected(false);
+      setFolderUrl("");
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Impossible de retirer Google Drive");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function askDrive(event: React.MouseEvent<HTMLInputElement>) {
     if (driveConnected) return;
     event.preventDefault();
-    void connectDrive();
+    setDrivePrompt(event.currentTarget.accept.includes("audio") ? "musique" : "photo");
   }
 
   async function connectDrive() {
@@ -244,24 +278,49 @@ export function SetupStudio() {
     }
   }
 
-  async function uploadOne(file: File | undefined, apply: (url: string) => void, kind: "photo" | "musique" = "photo") {
+  function patchSlot(key: string, patch: Partial<{ name: string; progress: number | null; error: string }>) {
+    setSlots((current) => ({
+      ...current,
+      [key]: { name: "", progress: null, error: "", ...current[key], ...patch },
+    }));
+  }
+
+  function clearSlot(key: string) {
+    setSlots((current) => {
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  }
+
+  async function uploadOne(key: string, file: File | undefined, apply: (url: string) => void, kind: "photo" | "musique" = "photo") {
     if (!file) return;
     if (!slug || !driveConnected) {
-      setError(
-        kind === "musique"
+      patchSlot(key, {
+        name: file.name,
+        progress: null,
+        error: kind === "musique"
           ? "Enregistrez la fiche et connectez Google Drive avant d'ajouter la musique."
           : "Enregistrez la fiche et connectez Google Drive avant d'ajouter une photo.",
-      );
+      });
       return;
     }
+    patchSlot(key, { name: file.name, progress: 8, error: "" });
     setBusy(true);
-    setError("");
     try {
-      const body = await uploadFiles<{ photos: { id: string }[] }>("/api/drive/me", [file]);
+      const body = await uploadFiles<{ photos: { id: string }[] }>("/api/drive/me", [file], (ratio) => {
+        patchSlot(key, { progress: Math.max(8, Math.round(ratio * 100)) });
+      });
       const id = body.photos[0]?.id;
-      if (id) apply(driveFileUrl(id));
+      if (!id) throw new Error("Le fichier n'a pas été enregistré.");
+      apply(driveFileUrl(id));
+      patchSlot(key, { name: file.name, progress: null, error: "" });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Envoi impossible");
+      patchSlot(key, {
+        name: file.name,
+        progress: null,
+        error: cause instanceof Error ? cause.message : "Envoi impossible",
+      });
     } finally {
       setBusy(false);
     }
@@ -269,15 +328,18 @@ export function SetupStudio() {
 
   async function addGallery(list: FileList | null) {
     if (!list?.length) return;
+    const files = Array.from(list);
     if (!slug || !driveConnected) {
-      setError("Enregistrez la fiche et connectez Google Drive avant d'ajouter des photos.");
+      patchSlot("gallery", { name: files.map((file) => file.name).join(", "), progress: null, error: "Enregistrez la fiche et connectez Google Drive avant d'ajouter des photos." });
       return;
     }
+    patchSlot("gallery", { name: files.map((file) => file.name).join(", "), progress: 8, error: "" });
     setBusy(true);
-    setError("");
     try {
-      const body = await uploadFiles<{ photos: { id: string }[] }>("/api/drive/me", Array.from(list));
-      const added = body.photos.map((photo) => ({ src: driveFileUrl(photo.id), alt: "", place: "" }));
+      const body = await uploadFiles<{ photos: { id: string; name?: string }[] }>("/api/drive/me", files, (ratio) => {
+        patchSlot("gallery", { progress: Math.max(8, Math.round(ratio * 100)) });
+      });
+      const added = body.photos.map((photo, index) => ({ src: driveFileUrl(photo.id), alt: files[index]?.name || photo.name || "", place: "" }));
       setDraft((current) => ({
         ...current,
         photos: {
@@ -285,9 +347,9 @@ export function SetupStudio() {
           gallery: [...current.photos.gallery.filter((item) => item.src), ...added],
         },
       }));
-      setMessage("Photos ajoutées. Écrivez le lieu sous chacune, puis enregistrez.");
+      patchSlot("gallery", { progress: null, error: "" });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Envoi impossible");
+      patchSlot("gallery", { progress: null, error: cause instanceof Error ? cause.message : "Envoi impossible" });
     } finally {
       setBusy(false);
     }
@@ -397,6 +459,32 @@ export function SetupStudio() {
     setCopied(true);
     window.setTimeout(() => setCopied(false), 1800);
   }
+
+  function FileSlot({ id, onRemove }: { id: string; onRemove?: () => void }) {
+    const slot = slots[id];
+    if (!slot) return null;
+    return (
+      <div className="file-slot">
+        {slot.progress !== null ? (
+          <div className="album-progress" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={slot.progress} aria-label="Envoi du fichier">
+            <span className="album-progress-track"><span style={{ width: `${slot.progress}%` }} /></span>
+            <span className="album-progress-value">{slot.progress} %</span>
+          </div>
+        ) : null}
+        {slot.name ? (
+          <p className="file-name">
+            <span>{slot.name}</span>
+            {onRemove ? (
+              <button className="text-link" type="button" onClick={() => { onRemove(); clearSlot(id); }}>Supprimer</button>
+            ) : null}
+          </p>
+        ) : null}
+        {slot.error ? <p className="warning">{slot.error}</p> : null}
+      </div>
+    );
+  }
+
+  if (booting) return <PageLoader account />;
 
   return (
     <div className={step === "compte" ? "setup setup-account" : "setup"}>
@@ -525,8 +613,19 @@ export function SetupStudio() {
           )}
           {error ? <p className="warning">{error}</p> : null}
           {message ? <p className="note">{message}</p> : null}
-          <button className="line-btn" type="submit" disabled={busy}>
-            {busy ? "Patientez" : resetToken || mode === "forgot" ? "Changer le mot de passe" : mode === "login" ? "Se connecter" : "Créer le compte"}
+          <button className="line-btn" type="submit" disabled={busy} aria-busy={busy}>
+            {busy ? (
+              <>
+                <ButtonSpinner />
+                <span className="sr-only">Patientez</span>
+              </>
+            ) : resetToken || mode === "forgot" ? (
+              "Changer le mot de passe"
+            ) : mode === "login" ? (
+              "Se connecter"
+            ) : (
+              "Créer le compte"
+            )}
           </button>
         </form>
       ) : null}
@@ -592,13 +691,18 @@ export function SetupStudio() {
             {driveConnected ? "Changer de compte Google" : "Connecter mon Google Drive"}
           </button>
           {driveConnected ? (
-            <p className="note">
-              {folderUrl
-                ? `Drive lié. Dossier de ce mariage : ${folderUrl}`
-                : slug
-                  ? "Drive lié. Enregistrez la fiche pour créer le dossier de ce mariage."
-                  : "Drive lié. Enregistrez la fiche, puis les fichiers iront dans votre Drive."}
-            </p>
+            <>
+              <p className="note">
+                {folderUrl
+                  ? `Drive lié. Dossier de ce mariage : ${folderUrl}`
+                  : slug
+                    ? "Drive lié. Enregistrez la fiche pour créer le dossier de ce mariage."
+                    : "Drive lié. Enregistrez la fiche, puis les fichiers iront dans votre Drive."}
+              </p>
+              <button className="line-btn" type="button" onClick={() => void disconnectDrive()} disabled={busy}>
+                Supprimer le lien
+              </button>
+            </>
           ) : (
             <p className="warning">Sans Drive, les photos et la musique du site ne peuvent pas être enregistrées.</p>
           )}
@@ -658,8 +762,9 @@ export function SetupStudio() {
           <h2>Photo d'arrivée</h2>
           <p className="note">Elle apparaît sur le premier écran, avant d'entrer dans la cérémonie. Vous pouvez la remplacer.</p>
           <label className="field">Photo
-            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne(event.target.files?.[0], (url) => setDraft((current) => ({ ...current, entrance: { ...current.entrance, photo: url } }))); event.target.value = ""; }} />
+            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne("entrance", event.target.files?.[0], (url) => setDraft((current) => ({ ...current, entrance: { ...current.entrance, photo: url } }))); event.target.value = ""; }} />
           </label>
+          <FileSlot id="entrance" onRemove={() => setDraft({ ...draft, entrance: { ...draft.entrance, photo: "" } })} />
           {draft.entrance.photo ? (
             <div className="photo-edit">
               <img className="entrance-preview" src={draft.entrance.photo} alt="" />
@@ -673,8 +778,9 @@ export function SetupStudio() {
             <textarea rows={3} value={draft.invitation} onChange={(event) => setDraft({ ...draft, invitation: event.target.value })} />
           </label>
           <label className="field">Photo de la phrase
-            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne(event.target.files?.[0], (url) => setDraft((current) => ({ ...current, invitationPhoto: url }))); event.target.value = ""; }} />
+            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne("invitation", event.target.files?.[0], (url) => setDraft((current) => ({ ...current, invitationPhoto: url }))); event.target.value = ""; }} />
           </label>
+          <FileSlot id="invitation" onRemove={() => setDraft({ ...draft, invitationPhoto: "" })} />
           {draft.invitationPhoto ? (
             <div className="photo-edit">
               <img src={draft.invitationPhoto} alt="" />
@@ -688,8 +794,9 @@ export function SetupStudio() {
             <textarea rows={3} value={draft.story.passages[0]?.text || ""} onChange={(event) => updatePassage(0, { text: event.target.value })} />
           </label>
           <label className="field">Photo du marié
-            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne(event.target.files?.[0], (url) => setDraft((current) => ({ ...current, story: { ...current.story, passages: current.story.passages.map((item, index) => index === 0 ? { ...item, photo: url } : item) } }))); event.target.value = ""; }} />
+            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne("story-0", event.target.files?.[0], (url) => setDraft((current) => ({ ...current, story: { ...current.story, passages: current.story.passages.map((item, index) => index === 0 ? { ...item, photo: url } : item) } }))); event.target.value = ""; }} />
           </label>
+          <FileSlot id="story-0" onRemove={() => updatePassage(0, { photo: "" })} />
           {draft.story.passages[0]?.photo ? (
             <div className="photo-edit">
               <img src={draft.story.passages[0].photo} alt="" />
@@ -703,8 +810,9 @@ export function SetupStudio() {
             <textarea rows={3} value={draft.story.passages[1]?.text || ""} onChange={(event) => updatePassage(1, { text: event.target.value })} />
           </label>
           <label className="field">Photo de la mariée
-            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne(event.target.files?.[0], (url) => setDraft((current) => ({ ...current, story: { ...current.story, passages: current.story.passages.map((item, index) => index === 1 ? { ...item, photo: url } : item) } }))); event.target.value = ""; }} />
+            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne("story-1", event.target.files?.[0], (url) => setDraft((current) => ({ ...current, story: { ...current.story, passages: current.story.passages.map((item, index) => index === 1 ? { ...item, photo: url } : item) } }))); event.target.value = ""; }} />
           </label>
+          <FileSlot id="story-1" onRemove={() => updatePassage(1, { photo: "" })} />
           {draft.story.passages[1]?.photo ? (
             <div className="photo-edit">
               <img src={draft.story.passages[1].photo} alt="" />
@@ -718,8 +826,9 @@ export function SetupStudio() {
             <input value={draft.verse.reference} onChange={(event) => setDraft({ ...draft, verse: { ...draft.verse, reference: event.target.value } })} />
           </label>
           <label className="field">Photo du verset
-            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne(event.target.files?.[0], (url) => setDraft((current) => ({ ...current, verse: { ...current.verse, photo: url } }))); event.target.value = ""; }} />
+            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne("verse", event.target.files?.[0], (url) => setDraft((current) => ({ ...current, verse: { ...current.verse, photo: url } }))); event.target.value = ""; }} />
           </label>
+          <FileSlot id="verse" onRemove={() => setDraft({ ...draft, verse: { ...draft.verse, photo: "" } })} />
           {draft.verse.photo ? (
             <div className="photo-edit">
               <img src={draft.verse.photo} alt="" />
@@ -789,8 +898,9 @@ export function SetupStudio() {
               : "Connectez votre Google Drive et enregistrez la fiche, puis ajoutez les photos. Chaque couple a son propre dossier."}
           </p>
           <label className="field">Photo principale
-            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne(event.target.files?.[0], (url) => setDraft((current) => ({ ...current, photos: { ...current.photos, hero: { src: url, alt: "Photo du couple" } } }))); event.target.value = ""; }} />
+            <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne("hero", event.target.files?.[0], (url) => setDraft((current) => ({ ...current, photos: { ...current.photos, hero: { src: url, alt: "Photo du couple" } } }))); event.target.value = ""; }} />
           </label>
+          <FileSlot id="hero" onRemove={() => setDraft({ ...draft, photos: { ...draft.photos, hero: { src: "", alt: "" } } })} />
           {draft.photos.hero.src ? (
             <div className="photo-edit">
               <img src={draft.photos.hero.src} alt="" />
@@ -800,6 +910,7 @@ export function SetupStudio() {
           <label className="field">Autres photos
             <input type="file" accept="image/*" multiple disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void addGallery(event.target.files); event.target.value = ""; }} />
           </label>
+          <FileSlot id="gallery" />
           {draft.photos.gallery.map((photo, index) => photo.src ? (
             <div className="photo-edit" key={`${photo.src}-${index}`}>
               <img src={photo.src} alt="" />
@@ -807,8 +918,9 @@ export function SetupStudio() {
                 <input value={photo.place || ""} onChange={(event) => updateGallery(index, event.target.value)} />
               </label>
               <label className="field">Remplacer
-                <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne(event.target.files?.[0], (url) => replaceGallery(index, url)); event.target.value = ""; }} />
+                <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne(`gallery-${index}`, event.target.files?.[0], (url) => replaceGallery(index, url)); event.target.value = ""; }} />
               </label>
+              <FileSlot id={`gallery-${index}`} />
               <button className="text-link" type="button" onClick={() => removeGallery(index)}>Supprimer</button>
             </div>
           ) : null)}
@@ -840,14 +952,15 @@ export function SetupStudio() {
           <h2>Musique de fond</h2>
           <p className="note">Le fichier est enregistré dans votre Google Drive. Connectez d'abord votre compte Google. Vous pouvez le remplacer. Sur l'invitation, lecture et pause sont à gauche.</p>
           <label className="field">Fichier musical
-            <input type="file" accept="audio/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne(event.target.files?.[0], (url) => setDraft((current) => ({ ...current, music: { ...current.music, background: { enabled: true, src: url } } })), "musique"); event.target.value = ""; }} />
+            <input type="file" accept="audio/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne("music", event.target.files?.[0], (url) => setDraft((current) => ({ ...current, music: { ...current.music, background: { enabled: true, src: url } } })), "musique"); event.target.value = ""; }} />
           </label>
+          <FileSlot id="music" onRemove={() => setDraft({ ...draft, music: { ...draft.music, background: { enabled: false, src: "" } } })} />
           {draft.music.background.src ? (
             <div className="music-actions">
               <audio ref={musicRef} src={draft.music.background.src} preload="none" />
               <button className="line-btn" type="button" onClick={() => void musicRef.current?.play()}>Lecture</button>
               <button className="line-btn" type="button" onClick={() => musicRef.current?.pause()}>Pause</button>
-              <button className="text-link" type="button" onClick={() => setDraft({ ...draft, music: { ...draft.music, background: { enabled: false, src: "" } } })}>Retirer</button>
+              <button className="text-link" type="button" onClick={() => { setDraft({ ...draft, music: { ...draft.music, background: { enabled: false, src: "" } } }); clearSlot("music"); }}>Supprimer</button>
             </div>
           ) : null}
 
@@ -872,6 +985,24 @@ export function SetupStudio() {
             </>
           ) : null}
         </section>
+      ) : null}
+      {drivePrompt ? (
+        <div className="save-popup" role="dialog" aria-modal="true" aria-label="Google Drive">
+          <div>
+            <p className="kicker">Google Drive</p>
+            <p className="prose">
+              {drivePrompt === "musique"
+                ? "Pour ajouter une musique, connectez d'abord un compte Google Drive."
+                : "Pour ajouter une photo, connectez d'abord un compte Google Drive."}
+            </p>
+            <button className="line-btn" type="button" onClick={() => void connectDrive()}>
+              Connecter Google Drive
+            </button>
+            <button className="text-link" type="button" onClick={() => setDrivePrompt("")}>
+              Fermer
+            </button>
+          </div>
+        </div>
       ) : null}
       {popup ? (
         <div className="save-popup" role="dialog" aria-modal="true" aria-label="Enregistrement">

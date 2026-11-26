@@ -1,9 +1,10 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cormorant_Garamond, Inter } from "next/font/google";
 import { wedding } from "@/wedding.config";
 import { siteUrl } from "@/lib/text";
+import { InstallPrompt } from "@/components/InstallPrompt";
 import { ThemeSync } from "@/components/ThemeSync";
-import { colorsFor, themeStyle } from "@/lib/theme";
+import { shellColors, themeStyle } from "@/lib/theme";
 import "./globals.css";
 
 const serif = Cormorant_Garamond({
@@ -20,6 +21,12 @@ const sans = Inter({
 
 const url = siteUrl();
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export const metadata: Metadata = {
   metadataBase: url ?? undefined,
   title: "Noces",
@@ -32,15 +39,21 @@ export const metadata: Metadata = {
     type: "website",
     url: url?.toString(),
   },
+  appleWebApp: {
+    capable: true,
+    title: "Noces",
+    statusBarStyle: "default",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr" className={`${serif.variable} ${sans.variable}`} style={themeStyle(colorsFor())}>
+    <html lang="fr" className={`${serif.variable} ${sans.variable}`} style={themeStyle(shellColors)}>
       <body>
         <ThemeSync />
         {children}
-        <p className="legal-foot">
+        <InstallPrompt />
+        <p className="legal-foot no-print">
           <a href="/confidentialite">Règles de confidentialité</a>
         </p>
       </body>

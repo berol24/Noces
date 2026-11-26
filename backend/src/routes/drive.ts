@@ -181,6 +181,19 @@ driveRouter.get("/status", requireAuth, async (req: AuthRequest, res) => {
   res.json({ configured: googleConfigured(), connected: Boolean(token) });
 });
 
+driveRouter.delete("/disconnect", requireAuth, async (req: AuthRequest, res) => {
+  const token = await ownerToken(req.userId);
+  await User.updateOne({ _id: req.userId }, { googleRefreshToken: "" });
+  if (token) {
+    try {
+      await oauthClient().revokeToken(token);
+    } catch (error) {
+      console.error(error);
+    }
+  }
+  res.json({ connected: false });
+});
+
 driveRouter.get("/connect", (req, res) => {
   if (!googleConfigured()) {
     res.status(400).json({

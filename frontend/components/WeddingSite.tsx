@@ -47,8 +47,8 @@ export function WeddingSite() {
       {entered ? null : (
         <Entrance onEnter={() => setEntered(true)} themeId={themeId} onTheme={chooseTheme} />
       )}
+      <Hero />
       <main className="column">
-        <Hero />
         <Songs />
         <Countdown />
         <Story />
