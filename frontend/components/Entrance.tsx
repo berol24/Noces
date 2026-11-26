@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useWedding } from "@/components/wedding-context";
 import { DiamondRule, Leaves, Monogram, Rings } from "@/components/art";
 import { useAudio } from "@/components/audio";
+import { focusStyle } from "@/lib/photo";
 import { familiesLine } from "@/lib/text";
 import { OwnWedding } from "@/components/OwnWedding";
 
@@ -40,11 +41,15 @@ export function Entrance({
         <p className="kicker">{wedding.entrance.kicker}</p>
         <Monogram top={monogram.top} bottom={monogram.bottom} />
         <h1 className="names">
-          {first.firstName}
+          <span>{first.firstName}</span>
           <em>&</em>
-          {second.firstName}
+          <span>{second.firstName}</span>
         </h1>
-        {wedding.entrance.photo ? <img className="entrance-photo" src={wedding.entrance.photo} alt="" /> : null}
+        {wedding.entrance.photo ? (
+          <span className="entrance-photo">
+            <img src={wedding.entrance.photo} alt="" style={focusStyle(wedding.entrance.photoFocus)} />
+          </span>
+        ) : null}
         <p className="families">{familiesLine(wedding)}</p>
         <DiamondRule />
         <p className="when">

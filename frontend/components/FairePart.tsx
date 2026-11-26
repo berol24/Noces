@@ -30,15 +30,15 @@ export function FairePart() {
       <p className="kicker">· Save the date ·</p>
       {wedding.photos.hero.src ? (
         <div className="poster-photo">
-          <Frame src={wedding.photos.hero.src} alt={wedding.photos.hero.alt} />
+          <Frame src={wedding.photos.hero.src} alt={wedding.photos.hero.alt} focus={wedding.photos.hero.focus} />
         </div>
       ) : (
         <Monogram top={monogram.top} bottom={monogram.bottom} size={132} />
       )}
       <h1 className="names">
-        {first.firstName}
+        <span>{first.firstName}</span>
         <em>&</em>
-        {second.firstName}
+        <span>{second.firstName}</span>
       </h1>
       <p className="families">{familiesLine(wedding)}</p>
       <p className="when">

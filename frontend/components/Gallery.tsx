@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { useWedding } from "@/components/wedding-context";
 import { SectionHeading } from "@/components/art";
 import { Frame } from "@/components/Frame";
@@ -33,7 +34,7 @@ export function Gallery() {
         {photos.map((photo, index) => (
           <Reveal from={index % 2 ? "right" : "left"} delay={(index % 2) * 140} key={`${photo.src}-${index}`}>
             <button className="portrait-tile" type="button" onClick={() => setActive(photo)}>
-              <Frame src={photo.src} alt={photo.place || photo.alt} />
+              <Frame src={photo.src} alt={photo.place || photo.alt} focus={photo.focus} />
               {photo.place ? <span className="photo-place">{photo.place}</span> : null}
             </button>
           </Reveal>
@@ -42,16 +43,17 @@ export function Gallery() {
       <Reveal>
         <p className="hint">Cliquez sur une photo pour agrandir</p>
       </Reveal>
-      {active ? (
+      {active ? createPortal(
         <div className="lightbox" role="dialog" aria-modal="true" aria-label={active.alt} onClick={() => setActive(null)}>
           <button className="lightbox-close" type="button" aria-label="Fermer" onClick={() => setActive(null)}>
             ×
           </button>
           <figure onClick={(event) => event.stopPropagation()}>
-            <Frame src={active.src} alt={active.alt} />
+            <Frame src={active.src} alt={active.alt} focus={active.focus} />
             {active.place || active.alt ? <figcaption>{active.place || active.alt}</figcaption> : null}
           </figure>
-        </div>
+        </div>,
+        document.body,
       ) : null}
     </section>
   );

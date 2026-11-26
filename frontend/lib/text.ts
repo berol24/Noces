@@ -39,12 +39,36 @@ export function pageDescription(data: WeddingConfig = wedding) {
   return `Mariage de ${bride.firstName} ${bride.lastName} et ${groom.firstName} ${groom.lastName} · ${fullDate(data)} · ${placeLine(data)}`;
 }
 
+export function slugify(value: string) {
+  const raw = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return raw || "mariage";
+}
+
+export function coupleSlug(data: WeddingConfig = wedding) {
+  const { bride, groom, nameOrder } = data.couple;
+  const first = nameOrder === "groom-bride" ? groom.firstName : bride.firstName;
+  const second = nameOrder === "groom-bride" ? bride.firstName : groom.firstName;
+  return slugify(`${first}-et-${second}`);
+}
+export function coupleFullLine(data: WeddingConfig = wedding) {
+  const { bride, groom, nameOrder } = data.couple;
+  const first = nameOrder === "groom-bride" ? groom : bride;
+  const second = nameOrder === "groom-bride" ? bride : groom;
+  const name = (person: { firstName: string; lastName: string }) => [person.firstName, person.lastName].filter(Boolean).join(" ");
+  return `${name(first)} & ${name(second)}`;
+}
+
 export function shareTitle(data: WeddingConfig = wedding) {
-  return data.seo.shareTitle || `Mariage de ${coupleLine(data)}`;
+  return data.seo?.shareTitle || `Mariage de ${coupleFullLine(data)}`;
 }
 
 export function shareText(data: WeddingConfig = wedding) {
-  return data.seo.shareText || `${fullDate(data)} · ${placeLine(data)} · ${familiesLine(data)}`;
+  return data.seo?.shareText || `${fullDate(data)} · ${placeLine(data)} · ${familiesLine(data)}`;
 }
 
 export const publishedSite = "https://noces-7hjy.onrender.com";
@@ -62,18 +86,17 @@ export function inviteUrl(slug: string) {
 }
 
 export function shareMessage(data: WeddingConfig, url: string) {
-  const sentence = data.invitation.trim() || "Nous avons la joie de vous inviter à célébrer notre mariage.";
-  return [
-    `${coupleLine(data)} se marient`,
+  const custom = data.seo?.shareText?.trim() || "";
+  const body = custom || [
+    `${coupleFullLine(data)} se marient`,
     "",
-    sentence,
+    data.invitation.trim() || "Nous avons la joie de vous inviter à célébrer notre mariage.",
     "",
     fullDate(data),
     placeLine(data),
     familiesLine(data),
-    "",
-    url,
   ].join("\n");
+  return body.includes(url) ? body : `${body}\n\n${url}`;
 }
 
 export function footerLine(data: WeddingConfig = wedding) {

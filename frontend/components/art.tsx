@@ -69,6 +69,7 @@ export function Monogram({
   return (
     <div className="monogram" style={{ width: size, height: size }}>
       <svg className="ring" viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="36" fill="var(--bg)" />
         <circle cx="50" cy="50" r="47" fill="none" stroke="var(--accent-deep)" strokeWidth="0.7" />
         <circle
           cx="50"

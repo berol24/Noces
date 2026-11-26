@@ -3,6 +3,7 @@
 import { useWedding } from "@/components/wedding-context";
 import { SectionHeading } from "@/components/art";
 import { Reveal } from "@/components/Reveal";
+import { focusStyle } from "@/lib/photo";
 import { personName } from "@/lib/text";
 
 export function Story() {
@@ -15,7 +16,11 @@ export function Story() {
       {invitation ? (
         <Reveal from="left">
           <article className="text-band">
-            {wedding.invitationPhoto ? <img src={wedding.invitationPhoto} alt="" /> : null}
+            {wedding.invitationPhoto ? (
+              <span className="crop">
+                <img src={wedding.invitationPhoto} alt="" style={focusStyle(wedding.invitationPhotoFocus)} />
+              </span>
+            ) : null}
             {wedding.invitation ? <p className="prose">{wedding.invitation}</p> : null}
           </article>
         </Reveal>
@@ -28,7 +33,11 @@ export function Story() {
           {wedding.story.passages.map((passage, index) => (
             <Reveal from={index % 2 ? "right" : "left"} key={`${passage.speaker}-${index}`}>
               <article className={passage.photo ? `text-row${index % 2 ? " flip" : ""}` : undefined}>
-                {passage.photo ? <img src={passage.photo} alt="" /> : null}
+                {passage.photo ? (
+                  <span className="crop">
+                    <img src={passage.photo} alt="" style={focusStyle(passage.photoFocus)} />
+                  </span>
+                ) : null}
                 <div>
                   <p className="speaker">{personName(passage.speaker, wedding)}</p>
                   {passage.quote ? <blockquote className="quote">« {passage.quote} »</blockquote> : null}
@@ -47,7 +56,11 @@ export function Story() {
       {wedding.verse.enabled && (wedding.verse.text || wedding.verse.photo) ? (
         <Reveal from="left">
           <figure className={wedding.verse.photo ? "verse verse-split" : "verse"}>
-            {wedding.verse.photo ? <img src={wedding.verse.photo} alt="" /> : null}
+            {wedding.verse.photo ? (
+              <span className="crop">
+                <img src={wedding.verse.photo} alt="" style={focusStyle(wedding.verse.photoFocus)} />
+              </span>
+            ) : null}
             <div>
               {wedding.verse.text ? <p>{wedding.verse.text}</p> : null}
               {wedding.verse.reference ? <cite>{wedding.verse.reference}</cite> : null}

@@ -46,6 +46,8 @@ export type GalleryPhoto = {
   alt: string;
   /** Lieu ou légende affiché sur la photo. */
   place?: string;
+  /** Cadrage, par exemple « 50% 30% » ou « 50% 30% 1.4 » pour le zoom. */
+  focus?: string;
 };
 
 export type ColorTheme = {
@@ -100,13 +102,15 @@ export type WeddingConfig = {
     button: string;
     /** Photo de l'écran d'arrivée. Vide : le monogramme reste seul. */
     photo?: string;
+    photoFocus?: string;
   };
   invitation: string;
   /** Photo affichée avec la phrase du faire-part. */
   invitationPhoto?: string;
+  invitationPhotoFocus?: string;
   story: {
     enabled: boolean;
-    passages: { speaker: Speaker; quote: string; text: string; photo?: string }[];
+    passages: { speaker: Speaker; quote: string; text: string; photo?: string; photoFocus?: string }[];
     closing: string;
   };
   verse: {
@@ -114,6 +118,7 @@ export type WeddingConfig = {
     text: string;
     reference: string;
     photo?: string;
+    photoFocus?: string;
   };
   ceremonies: Ceremony[];
   betweenCeremonies: string;

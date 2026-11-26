@@ -59,10 +59,29 @@ function acceptPhotos(req: AuthRequest, res: import("express").Response, next: i
   });
 }
 
-function googleMessage(error: unknown) {
+function googleText(error: unknown) {
   const message = error instanceof Error ? error.message : "";
-  if (message.includes("invalid_grant")) return "La connexion Google Drive a expiré. Reconnectez le compte.";
+  let code = "";
+  if (error && typeof error === "object" && "response" in error) {
+    const data = (error as { response?: { data?: { error?: string; error_description?: string } } }).response?.data;
+    code = `${data?.error || ""} ${data?.error_description || ""}`;
+  }
+  return `${message} ${code}`.toLowerCase();
+}
+
+function googleExpired(error: unknown) {
+  const text = googleText(error);
+  return text.includes("invalid_grant") || text.includes("unauthorized_client") || text.includes("invalid_client");
+}
+
+function googleMessage(error: unknown) {
+  if (googleExpired(error)) return "La connexion Google Drive n'est plus valable. Reconnectez le compte, puis renvoyez la photo.";
   return "Google Drive a refusé l'opération.";
+}
+
+async function forgetExpiredToken(userId: unknown, error: unknown) {
+  if (!userId || !googleExpired(error)) return;
+  await User.updateOne({ _id: userId }, { googleRefreshToken: "" });
 }
 
 async function ownerToken(userId: unknown) {
@@ -104,13 +123,7 @@ export async function folderLinkFor(wedding: DriveWedding) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    let details = "";
-    try {
-      details = JSON.stringify(error);
-    } catch {
-      details = "";
-    }
-    const text = `${message} ${details}`.toLowerCase();
+    const text = message.toLowerCase();
     if (!text.includes("already exists") && !text.includes("duplicate")) throw error;
   }
   const url = `https://drive.google.com/drive/folders/${folderId}`;
@@ -188,7 +201,7 @@ driveRouter.delete("/disconnect", requireAuth, async (req: AuthRequest, res) => 
     try {
       await oauthClient().revokeToken(token);
     } catch (error) {
-      console.error(error);
+      console.error(error instanceof Error ? error.message : error);
     }
   }
   res.json({ connected: false });
@@ -246,12 +259,12 @@ driveRouter.get("/callback", async (req, res) => {
       try {
         await folderLinkFor(wedding);
       } catch (error) {
-        console.error(error);
+        console.error(error instanceof Error ? error.message : error);
       }
     }
     res.redirect(`${origin()}/?drive=connected`);
   } catch (error) {
-    console.error(error);
+    console.error(error instanceof Error ? error.message : error);
     fail("Connexion à Google Drive impossible.");
   }
 });
@@ -266,7 +279,8 @@ driveRouter.get("/me/link", requireAuth, async (req: AuthRequest, res) => {
     const url = await folderLinkFor(wedding);
     res.json({ url });
   } catch (error) {
-    console.error(error);
+    console.error(error instanceof Error ? error.message : error);
+    await forgetExpiredToken(req.userId, error);
     res.status(502).json({ error: googleMessage(error) });
   }
 });
@@ -282,7 +296,7 @@ driveRouter.get("/public/:slug/photos", async (req, res) => {
     try {
       await dropMissingGuestPhotos(wedding, token);
     } catch (error) {
-      console.error(error);
+      console.error(error instanceof Error ? error.message : error);
     }
   }
   const photos = (wedding.driveFiles || []).filter((file) => file.guest && String(file.mimeType || "").startsWith("image/"));
@@ -321,18 +335,19 @@ driveRouter.post("/me", requireAuth, acceptPhotos, async (req: AuthRequest, res)
     const photos = await storePhotos(wedding, token, files);
     res.json({ photos });
   } catch (error) {
-    console.error(error);
+    console.error(error instanceof Error ? error.message : error);
+    await forgetExpiredToken(req.userId, error);
     res.status(502).json({ error: googleMessage(error) });
   }
 });
 
 driveRouter.post("/public/:slug", acceptPhotos, async (req, res) => {
+  const wedding = await Wedding.findOne({ slug: req.params.slug });
+  if (!wedding) {
+    res.status(404).json({ error: "Invitation introuvable" });
+    return;
+  }
   try {
-    const wedding = await Wedding.findOne({ slug: req.params.slug });
-    if (!wedding) {
-      res.status(404).json({ error: "Invitation introuvable" });
-      return;
-    }
     const token = await ownerToken(wedding.userId);
     if (!token) {
       res.status(400).json({ error: "Le couple n'a pas encore connecté Google Drive." });
@@ -350,7 +365,8 @@ driveRouter.post("/public/:slug", acceptPhotos, async (req, res) => {
     const photos = await storePhotos(wedding, token, files, true);
     res.json({ photos });
   } catch (error) {
-    console.error(error);
+    console.error(error instanceof Error ? error.message : error);
+    await forgetExpiredToken(wedding.userId, error);
     res.status(502).json({ error: googleMessage(error) });
   }
 });
@@ -378,7 +394,7 @@ driveRouter.get("/files/:id", async (req, res) => {
     });
     media.data.pipe(res);
   } catch (error) {
-    console.error(error);
+    console.error(error instanceof Error ? error.message : error);
     res.status(502).json({ error: "Photo inaccessible" });
   }
 });

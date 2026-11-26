@@ -7,7 +7,8 @@ import { API, api, clearToken, driveFileUrl, ensureAccess, getToken, logoutSessi
 import { ButtonSpinner, PageLoader } from "@/components/Spinner";
 import { applyColors, customPalette, paletteOf } from "@/lib/theme";
 import { blankWedding, designs } from "@/lib/blank";
-import { asTime, ceremonyQuery, inviteUrl, mapUrl, shareMessage, shareTitle } from "@/lib/text";
+import { PhotoPreview } from "@/components/PhotoPreview";
+import { asTime, ceremonyQuery, coupleFullLine, coupleSlug, inviteUrl, mapUrl, shareMessage, shareTitle, slugify } from "@/lib/text";
 
 type Step = "compte" | "design" | "fiche";
 type Account = { email: string; name: string };
@@ -65,6 +66,11 @@ export function SetupStudio() {
   const [name, setName] = useState("");
   const [draft, setDraft] = useState<WeddingConfig>(() => blankWedding("classique"));
   const [dateValue, setDateValue] = useState("2026-06-27");
+  const [dayPart, setDayPart] = useState("27");
+  const [monthPart, setMonthPart] = useState("6");
+  const [yearPart, setYearPart] = useState("2026");
+  const [slugInput, setSlugInput] = useState("");
+  const [slugEdited, setSlugEdited] = useState(false);
   const [timeValue, setTimeValue] = useState("09:00");
   const [slug, setSlug] = useState("");
   const [message, setMessage] = useState("");
@@ -90,6 +96,10 @@ export function SetupStudio() {
     if (!match) return;
     setDateValue(match[1]);
     setTimeValue(match[2]);
+    const [year, month, day] = match[1].split("-");
+    setYearPart(year);
+    setMonthPart(String(Number(month)));
+    setDayPart(String(Number(day)));
   }
 
   async function loadSession() {
@@ -107,6 +117,8 @@ export function SetupStudio() {
     if (saved.wedding?.config) {
       setDraft({ ...saved.wedding.config, designId: saved.wedding.designId });
       setSlug(saved.wedding.slug);
+      setSlugInput(saved.wedding.slug);
+      setSlugEdited(true);
       applySavedDate(saved.wedding.config.date?.iso || "");
       applyColors(paletteOf(saved.wedding.config));
       setStep("fiche");
@@ -119,6 +131,8 @@ export function SetupStudio() {
     void logoutSession();
     setAccount(null);
     setSlug("");
+    setSlugInput("");
+    setSlugEdited(false);
     setFolderUrl("");
     setDraft(blankWedding("classique"));
     setDateValue("2026-06-27");
@@ -202,6 +216,25 @@ export function SetupStudio() {
       weekday: weekdays[parsed.getDay()],
     };
     return next;
+  }
+
+  function writeDate(day: string, month: string, year: string) {
+    const nextDay = day.replace(/\D/g, "").slice(0, 2);
+    const nextMonth = month.replace(/\D/g, "").slice(0, 2);
+    const nextYear = year.replace(/\D/g, "").slice(0, 4);
+    setDayPart(nextDay);
+    setMonthPart(nextMonth);
+    setYearPart(nextYear);
+    const d = Number(nextDay);
+    const m = Number(nextMonth);
+    if (nextYear.length === 4 && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+      setDateValue(`${nextYear}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`);
+    }
+  }
+
+  function proposedSlug() {
+    if (!slugEdited) return coupleSlug(draft);
+    return slugInput.trim() ? slugify(slugInput) : coupleSlug(draft);
   }
 
   async function submitAccount(event: React.FormEvent) {
@@ -316,10 +349,12 @@ export function SetupStudio() {
       apply(driveFileUrl(id));
       patchSlot(key, { name: file.name, progress: null, error: "" });
     } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Envoi impossible";
+      if (/reconnectez/i.test(message)) setDriveConnected(false);
       patchSlot(key, {
         name: file.name,
         progress: null,
-        error: cause instanceof Error ? cause.message : "Envoi impossible",
+        error: message,
       });
     } finally {
       setBusy(false);
@@ -349,7 +384,9 @@ export function SetupStudio() {
       }));
       patchSlot("gallery", { progress: null, error: "" });
     } catch (cause) {
-      patchSlot("gallery", { progress: null, error: cause instanceof Error ? cause.message : "Envoi impossible" });
+      const message = cause instanceof Error ? cause.message : "Envoi impossible";
+      if (/reconnectez/i.test(message)) setDriveConnected(false);
+      patchSlot("gallery", { progress: null, error: message });
     } finally {
       setBusy(false);
     }
@@ -393,9 +430,11 @@ export function SetupStudio() {
       };
       const saved = await api<{ slug: string }>("/api/weddings/me", {
         method: "PUT",
-        body: JSON.stringify({ designId: config.designId, config }),
+        body: JSON.stringify({ designId: config.designId, slug: proposedSlug(), config }),
       });
       setSlug(saved.slug);
+      setSlugInput(saved.slug);
+      setSlugEdited(true);
       setDraft(config);
       if (driveConnected) {
         const link = await api<{ url: string }>("/api/drive/me/link");
@@ -531,6 +570,7 @@ export function SetupStudio() {
       </button>
       {profileOpen ? (
         <div className="profile-panel">
+          <button className="profile-close" type="button" aria-label="Fermer" onClick={() => { setProfileOpen(false); setEditingProfile(false); setError(""); }}>×</button>
           {account ? (
             <>
               <p className="kicker">Profil</p>
@@ -746,10 +786,21 @@ export function SetupStudio() {
 
           <h2>Date du mariage</h2>
           <p className="note">Cette date lance le compte à rebours et l'ajout à l'agenda.</p>
-          <div className="setup-grid">
-            <label className="field">Jour du mariage
-              <input type="date" value={dateValue} onChange={(event) => setDateValue(event.target.value)} />
+          <div className="date-parts">
+            <label className="field">Jour
+              <input inputMode="numeric" maxLength={2} value={dayPart} onChange={(event) => writeDate(event.target.value, monthPart, yearPart)} />
             </label>
+            <label className="field">Mois
+              <input inputMode="numeric" maxLength={2} value={monthPart} onChange={(event) => writeDate(dayPart, event.target.value, yearPart)} />
+            </label>
+            <label className="field">Année
+              <input inputMode="numeric" maxLength={4} value={yearPart} onChange={(event) => writeDate(dayPart, monthPart, event.target.value)} />
+            </label>
+          </div>
+          {yearPart.length === 4 && Number(monthPart) >= 1 && Number(monthPart) <= 12 && Number(dayPart) >= 1 ? (
+            <p className="note">{Number(dayPart)} {months[Number(monthPart) - 1]} {yearPart}</p>
+          ) : null}
+          <div className="setup-grid">
             <label className="field">Heure de début
               <input type="time" value={timeValue} onChange={(event) => setTimeValue(event.target.value)} />
             </label>
@@ -804,10 +855,13 @@ export function SetupStudio() {
           />
           <FileSlot id="entrance" onRemove={() => setDraft({ ...draft, entrance: { ...draft.entrance, photo: "" } })} />
           {draft.entrance.photo ? (
-            <div className="photo-edit">
-              <img className="entrance-preview" src={draft.entrance.photo} alt="" />
-              <button className="text-link" type="button" onClick={() => setDraft({ ...draft, entrance: { ...draft.entrance, photo: "" } })}>Supprimer</button>
-            </div>
+            <PhotoPreview
+              src={draft.entrance.photo}
+              focus={draft.entrance.photoFocus}
+              shape="arch"
+              onFocus={(photoFocus) => setDraft({ ...draft, entrance: { ...draft.entrance, photoFocus } })}
+              onRemove={() => setDraft({ ...draft, entrance: { ...draft.entrance, photo: "", photoFocus: "" } })}
+            />
           ) : null}
 
           <h2>Textes</h2>
@@ -821,10 +875,13 @@ export function SetupStudio() {
           />
           <FileSlot id="invitation" onRemove={() => setDraft({ ...draft, invitationPhoto: "" })} />
           {draft.invitationPhoto ? (
-            <div className="photo-edit">
-              <img src={draft.invitationPhoto} alt="" />
-              <button className="text-link" type="button" onClick={() => setDraft({ ...draft, invitationPhoto: "" })}>Supprimer</button>
-            </div>
+            <PhotoPreview
+              src={draft.invitationPhoto}
+              focus={draft.invitationPhotoFocus}
+              shape="wide"
+              onFocus={(invitationPhotoFocus) => setDraft({ ...draft, invitationPhotoFocus })}
+              onRemove={() => setDraft({ ...draft, invitationPhoto: "", invitationPhotoFocus: "" })}
+            />
           ) : null}
           <label className="field">Citation du marié
             <textarea rows={2} value={draft.story.passages[0]?.quote || ""} onChange={(event) => updatePassage(0, { quote: event.target.value })} />
@@ -838,10 +895,13 @@ export function SetupStudio() {
           />
           <FileSlot id="story-0" onRemove={() => updatePassage(0, { photo: "" })} />
           {draft.story.passages[0]?.photo ? (
-            <div className="photo-edit">
-              <img src={draft.story.passages[0].photo} alt="" />
-              <button className="text-link" type="button" onClick={() => updatePassage(0, { photo: "" })}>Supprimer</button>
-            </div>
+            <PhotoPreview
+              src={draft.story.passages[0].photo}
+              focus={draft.story.passages[0].photoFocus}
+              shape="portrait"
+              onFocus={(photoFocus) => updatePassage(0, { photoFocus })}
+              onRemove={() => updatePassage(0, { photo: "", photoFocus: "" })}
+            />
           ) : null}
           <label className="field">Citation de la mariée
             <textarea rows={2} value={draft.story.passages[1]?.quote || ""} onChange={(event) => updatePassage(1, { quote: event.target.value })} />
@@ -855,10 +915,13 @@ export function SetupStudio() {
           />
           <FileSlot id="story-1" onRemove={() => updatePassage(1, { photo: "" })} />
           {draft.story.passages[1]?.photo ? (
-            <div className="photo-edit">
-              <img src={draft.story.passages[1].photo} alt="" />
-              <button className="text-link" type="button" onClick={() => updatePassage(1, { photo: "" })}>Supprimer</button>
-            </div>
+            <PhotoPreview
+              src={draft.story.passages[1].photo}
+              focus={draft.story.passages[1].photoFocus}
+              shape="portrait"
+              onFocus={(photoFocus) => updatePassage(1, { photoFocus })}
+              onRemove={() => updatePassage(1, { photo: "", photoFocus: "" })}
+            />
           ) : null}
           <label className="field">Verset
             <textarea rows={2} value={draft.verse.text} onChange={(event) => setDraft({ ...draft, verse: { ...draft.verse, text: event.target.value } })} />
@@ -872,10 +935,13 @@ export function SetupStudio() {
           />
           <FileSlot id="verse" onRemove={() => setDraft({ ...draft, verse: { ...draft.verse, photo: "" } })} />
           {draft.verse.photo ? (
-            <div className="photo-edit">
-              <img src={draft.verse.photo} alt="" />
-              <button className="text-link" type="button" onClick={() => setDraft({ ...draft, verse: { ...draft.verse, photo: "" } })}>Supprimer</button>
-            </div>
+            <PhotoPreview
+              src={draft.verse.photo}
+              focus={draft.verse.photoFocus}
+              shape="portrait"
+              onFocus={(photoFocus) => setDraft({ ...draft, verse: { ...draft.verse, photoFocus } })}
+              onRemove={() => setDraft({ ...draft, verse: { ...draft.verse, photo: "", photoFocus: "" } })}
+            />
           ) : null}
 
           <h2>Programme</h2>
@@ -887,6 +953,7 @@ export function SetupStudio() {
               <label className="field">Étape
                 <input value={item.title} onChange={(event) => updateProgram(index, { title: event.target.value })} />
               </label>
+              <button className="text-link" type="button" onClick={() => removeProgram(index)}>Supprimer cette étape</button>
             </div>
           ))}
           <button className="hint" type="button" onClick={() => setDraft({ ...draft, program: { ...draft.program, items: [...draft.program.items, { time: "", title: "", icon: "✦", highlight: false }] } })} style={{ background: "none", border: 0, cursor: "pointer" }}>
@@ -945,10 +1012,13 @@ export function SetupStudio() {
           />
           <FileSlot id="hero" onRemove={() => setDraft({ ...draft, photos: { ...draft.photos, hero: { src: "", alt: "" } } })} />
           {draft.photos.hero.src ? (
-            <div className="photo-edit">
-              <img src={draft.photos.hero.src} alt="" />
-              <button className="text-link" type="button" onClick={() => setDraft({ ...draft, photos: { ...draft.photos, hero: { src: "", alt: "" } } })}>Supprimer</button>
-            </div>
+            <PhotoPreview
+              src={draft.photos.hero.src}
+              focus={draft.photos.hero.focus}
+              shape="wide"
+              onFocus={(focus) => setDraft({ ...draft, photos: { ...draft.photos, hero: { ...draft.photos.hero, focus } } })}
+              onRemove={() => setDraft({ ...draft, photos: { ...draft.photos, hero: { src: "", alt: "" } } })}
+            />
           ) : null}
           <FilePick
             label="Autres photos"
@@ -958,7 +1028,16 @@ export function SetupStudio() {
           <FileSlot id="gallery" />
           {draft.photos.gallery.map((photo, index) => photo.src ? (
             <div className="photo-edit" key={`${photo.src}-${index}`}>
-              <img src={photo.src} alt="" />
+              <PhotoPreview
+                src={photo.src}
+                focus={photo.focus}
+                shape="portrait"
+                onFocus={(focus) => {
+                  const gallery = draft.photos.gallery.map((item, itemIndex) => (itemIndex === index ? { ...item, focus } : item));
+                  setDraft({ ...draft, photos: { ...draft.photos, gallery } });
+                }}
+                onRemove={() => removeGallery(index)}
+              />
               <label className="field">Lieu de la photo
                 <input value={photo.place || ""} onChange={(event) => updateGallery(index, event.target.value)} />
               </label>
@@ -968,7 +1047,6 @@ export function SetupStudio() {
                 onPick={(files) => { void uploadOne(`gallery-${index}`, files?.[0], (url) => replaceGallery(index, url)); }}
               />
               <FileSlot id={`gallery-${index}`} />
-              <button className="text-link" type="button" onClick={() => removeGallery(index)}>Supprimer</button>
             </div>
           ) : null)}
           {!driveConnected || !slug ? <p className="note">Connectez Google Drive et enregistrez la fiche avant d'envoyer les photos du site.</p> : null}
@@ -1013,6 +1091,33 @@ export function SetupStudio() {
             </div>
           ) : null}
 
+          <h2>Lien à partager</h2>
+          <p className="note">Le nom reprend les prénoms. Vous pouvez le changer : l'adresse se met à jour tout de suite, et Enregistrer la conserve.</p>
+          <label className="field">Nom du lien
+            <span className="slug-field">
+              <span>i/</span>
+              <input
+                value={slugEdited ? slugInput : coupleSlug(draft)}
+                onChange={(event) => {
+                  setSlugEdited(true);
+                  setSlugInput(event.target.value);
+                }}
+              />
+            </span>
+          </label>
+          <p className="note">{inviteUrl(proposedSlug())}</p>
+          <p className="note">Écrivez le message tel qu'il doit partir. L'aperçu change tout de suite. Enregistrer le conserve avec la fiche.</p>
+          <label className="field">Message
+            <textarea
+              rows={6}
+              value={draft.seo?.shareText || ""}
+              placeholder={`${coupleFullLine(draft)} se marient`}
+              onChange={(event) => setDraft({ ...draft, seo: { ...draft.seo, shareText: event.target.value } })}
+            />
+          </label>
+          <p className="kicker">Aperçu</p>
+          <pre className="share-preview">{shareMessage(draft, inviteUrl(proposedSlug()))}</pre>
+
           {error ? <p className="warning">{error}</p> : null}
           {message ? <p className="note">{message}</p> : null}
           <button className="line-btn" type="button" onClick={() => void save()} disabled={busy}>
@@ -1021,7 +1126,7 @@ export function SetupStudio() {
           {slug ? (
             <>
               <p className="prose">
-                Invitation : <a href={`/i/${slug}`}>/i/{slug}</a>
+                Invitation : <a href={`/i/${proposedSlug()}`}>/i/{proposedSlug()}</a>
               </p>
               <p className="note">Ce lien ouvre seulement l'invitation. Personne n'entre dans votre compte.</p>
               <div className="share-row">
@@ -1089,6 +1194,11 @@ export function SetupStudio() {
 
   function updateProgram(index: number, patch: Partial<WeddingConfig["program"]["items"][number]>) {
     const items = draft.program.items.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item));
+    setDraft({ ...draft, program: { ...draft.program, items } });
+  }
+
+  function removeProgram(index: number) {
+    const items = draft.program.items.filter((_, itemIndex) => itemIndex !== index);
     setDraft({ ...draft, program: { ...draft.program, items } });
   }
 

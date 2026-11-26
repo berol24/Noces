@@ -2,15 +2,18 @@
 
 import { useState } from "react";
 import { Flower } from "@/components/art";
+import { focusStyle } from "@/lib/photo";
 
 export function Frame({
   src,
   alt,
   className = "",
+  focus = "50% 32%",
 }: {
   src: string;
   alt: string;
   className?: string;
+  focus?: string;
 }) {
   const [failed, setFailed] = useState(!src);
 
@@ -24,11 +27,13 @@ export function Frame({
   }
 
   return (
-    <img
-      src={src}
-      alt={alt}
-      className={className}
-      onError={() => setFailed(true)}
-    />
+    <span className={`crop ${className}`.trim()}>
+      <img
+        src={src}
+        alt={alt}
+        style={focusStyle(focus)}
+        onError={() => setFailed(true)}
+      />
+    </span>
   );
 }

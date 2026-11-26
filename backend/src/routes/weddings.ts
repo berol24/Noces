@@ -10,6 +10,7 @@ const designs = ["classique", "editorial", "jardin", "lin"] as const;
 
 const saveSchema = z.object({
   designId: z.enum(designs),
+  slug: z.string().optional(),
   config: z
     .object({
       couple: z.object({
@@ -29,13 +30,17 @@ const saveSchema = z.object({
 });
 
 function slugify(bride: string, groom: string) {
-  const raw = `${bride}-et-${groom}`
+  return cleanSlug(`${bride}-et-${groom}`);
+}
+
+function cleanSlug(value: string) {
+  const raw = value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
-  return raw || "mariage";
+  return raw || "";
 }
 
 weddingRouter.get("/designs", (_req, res) => {
@@ -79,18 +84,19 @@ weddingRouter.put("/me", requireAuth, async (req: AuthRequest, res) => {
     res.status(400).json({ error: "Renseignez les prénoms, la ville et le pays" });
     return;
   }
-  const { designId, config } = parsed.data;
+  const { designId, config, slug: requested } = parsed.data;
   const nextConfig = { ...config, designId, showThemePicker: false };
   const current = await Wedding.findOne({ userId: req.userId });
-  let slug = current?.slug;
-  if (!slug) {
-    const base = slugify(config.couple.bride.firstName, config.couple.groom.firstName);
-    const taken = await Wedding.findOne({ slug: base });
-    slug = taken ? `${base}-${Math.random().toString(36).slice(2, 6)}` : base;
+  const fallback = slugify(config.couple.bride.firstName, config.couple.groom.firstName);
+  const wanted = cleanSlug(requested || "") || current?.slug || fallback;
+  const taken = await Wedding.findOne({ slug: wanted, userId: { $ne: req.userId } });
+  if (taken) {
+    res.status(409).json({ error: "Ce nom de lien est déjà utilisé" });
+    return;
   }
   const wedding = await Wedding.findOneAndUpdate(
     { userId: req.userId },
-    { userId: req.userId, slug, designId, config: nextConfig },
+    { userId: req.userId, slug: wanted, designId, config: nextConfig },
     { upsert: true, new: true, setDefaultsOnInsert: true },
   );
   res.json({ slug: wedding.slug, designId: wedding.designId, config: wedding.config });

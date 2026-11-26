@@ -18,7 +18,7 @@ export function Hero() {
       <div className="hero-photo">
         <div className="arch">
           {hero.src ? (
-            <Frame src={hero.src} alt={hero.alt} />
+            <Frame src={hero.src} alt={hero.alt} focus={hero.focus} />
           ) : (
             <div className="arch-fallback">
               <Monogram top={monogram.top} bottom={monogram.bottom} size={120} />
@@ -32,9 +32,9 @@ export function Hero() {
         <p className="kicker">— Nous nous marions —</p>
         <p className="families">{familiesLine(wedding)}</p>
         <h1 className="names">
-          {first.firstName}
+          <span>{first.firstName}</span>
           <em>&</em>
-          {second.firstName}
+          <span>{second.firstName}</span>
         </h1>
       </div>
       <div className="hero-foot slide-left">
