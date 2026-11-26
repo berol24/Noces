@@ -195,7 +195,7 @@ driveRouter.get("/connect", (req, res) => {
     const state = jwt.sign({ sub: payload.sub, purpose: "drive" }, secret(), { expiresIn: "10m" });
     const url = oauthClient().generateAuthUrl({
       access_type: "offline",
-      prompt: "consent",
+      prompt: "select_account consent",
       scope: ["https://www.googleapis.com/auth/drive.file"],
       state,
     });

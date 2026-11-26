@@ -457,7 +457,7 @@ export function SetupStudio() {
       ) : null}
       {step === "compte" ? (
         <>
-          <p className="brand"><span className="brand-mark" aria-hidden="true" />Noces</p>
+          <p className="brand" aria-label="Noces">N<span className="brand-o">o<span className="brand-rings" aria-hidden="true" /></span>ces</p>
           <h1 className="names account-title">
             {resetToken || mode === "forgot" ? "Mot de passe" : mode === "login" ? "Connexion" : "Inscription"}
           </h1>
@@ -471,7 +471,7 @@ export function SetupStudio() {
         </>
       ) : (
         <>
-          <p className="brand"><span className="brand-mark" aria-hidden="true" />Noces</p>
+          <p className="brand" aria-label="Noces">N<span className="brand-o">o<span className="brand-rings" aria-hidden="true" /></span>ces</p>
           <h1 className="names" style={{ fontSize: 64 }}>Créer l'invitation</h1>
           <p className="prose">Le design se choisit au départ. La fiche est enregistrée pour votre compte.</p>
         </>
@@ -589,7 +589,7 @@ export function SetupStudio() {
             Reliez votre Google Drive pour les photos et la musique du site (photo d'arrivée, galerie, textes). L'album des invités, lui, est un album Google Photos partagé, plus bas.
           </p>
           <button className="line-btn" type="button" onClick={() => void connectDrive()} disabled={busy}>
-            {driveConnected ? "Reconnecter Google Drive" : "Connecter mon Google Drive"}
+            {driveConnected ? "Changer de compte Google" : "Connecter mon Google Drive"}
           </button>
           {driveConnected ? (
             <p className="note">
@@ -663,7 +663,7 @@ export function SetupStudio() {
           {draft.entrance.photo ? (
             <div className="photo-edit">
               <img className="entrance-preview" src={draft.entrance.photo} alt="" />
-              <button className="text-link" type="button" onClick={() => setDraft({ ...draft, entrance: { ...draft.entrance, photo: "" } })}>Retirer</button>
+              <button className="text-link" type="button" onClick={() => setDraft({ ...draft, entrance: { ...draft.entrance, photo: "" } })}>Supprimer</button>
             </div>
           ) : null}
 
@@ -675,7 +675,12 @@ export function SetupStudio() {
           <label className="field">Photo de la phrase
             <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne(event.target.files?.[0], (url) => setDraft((current) => ({ ...current, invitationPhoto: url }))); event.target.value = ""; }} />
           </label>
-          {draft.invitationPhoto ? <img src={draft.invitationPhoto} alt="" style={{ width: "100%", maxHeight: 160, objectFit: "cover", marginTop: 8 }} /> : null}
+          {draft.invitationPhoto ? (
+            <div className="photo-edit">
+              <img src={draft.invitationPhoto} alt="" />
+              <button className="text-link" type="button" onClick={() => setDraft({ ...draft, invitationPhoto: "" })}>Supprimer</button>
+            </div>
+          ) : null}
           <label className="field">Citation du marié
             <textarea rows={2} value={draft.story.passages[0]?.quote || ""} onChange={(event) => updatePassage(0, { quote: event.target.value })} />
           </label>
@@ -685,7 +690,12 @@ export function SetupStudio() {
           <label className="field">Photo du marié
             <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne(event.target.files?.[0], (url) => setDraft((current) => ({ ...current, story: { ...current.story, passages: current.story.passages.map((item, index) => index === 0 ? { ...item, photo: url } : item) } }))); event.target.value = ""; }} />
           </label>
-          {draft.story.passages[0]?.photo ? <img src={draft.story.passages[0].photo} alt="" style={{ width: "100%", maxHeight: 160, objectFit: "cover", marginTop: 8 }} /> : null}
+          {draft.story.passages[0]?.photo ? (
+            <div className="photo-edit">
+              <img src={draft.story.passages[0].photo} alt="" />
+              <button className="text-link" type="button" onClick={() => updatePassage(0, { photo: "" })}>Supprimer</button>
+            </div>
+          ) : null}
           <label className="field">Citation de la mariée
             <textarea rows={2} value={draft.story.passages[1]?.quote || ""} onChange={(event) => updatePassage(1, { quote: event.target.value })} />
           </label>
@@ -695,7 +705,12 @@ export function SetupStudio() {
           <label className="field">Photo de la mariée
             <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne(event.target.files?.[0], (url) => setDraft((current) => ({ ...current, story: { ...current.story, passages: current.story.passages.map((item, index) => index === 1 ? { ...item, photo: url } : item) } }))); event.target.value = ""; }} />
           </label>
-          {draft.story.passages[1]?.photo ? <img src={draft.story.passages[1].photo} alt="" style={{ width: "100%", maxHeight: 160, objectFit: "cover", marginTop: 8 }} /> : null}
+          {draft.story.passages[1]?.photo ? (
+            <div className="photo-edit">
+              <img src={draft.story.passages[1].photo} alt="" />
+              <button className="text-link" type="button" onClick={() => updatePassage(1, { photo: "" })}>Supprimer</button>
+            </div>
+          ) : null}
           <label className="field">Verset
             <textarea rows={2} value={draft.verse.text} onChange={(event) => setDraft({ ...draft, verse: { ...draft.verse, text: event.target.value } })} />
           </label>
@@ -705,7 +720,12 @@ export function SetupStudio() {
           <label className="field">Photo du verset
             <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne(event.target.files?.[0], (url) => setDraft((current) => ({ ...current, verse: { ...current.verse, photo: url } }))); event.target.value = ""; }} />
           </label>
-          {draft.verse.photo ? <img src={draft.verse.photo} alt="" style={{ width: "100%", maxHeight: 160, objectFit: "cover", marginTop: 8 }} /> : null}
+          {draft.verse.photo ? (
+            <div className="photo-edit">
+              <img src={draft.verse.photo} alt="" />
+              <button className="text-link" type="button" onClick={() => setDraft({ ...draft, verse: { ...draft.verse, photo: "" } })}>Supprimer</button>
+            </div>
+          ) : null}
 
           <h2>Programme</h2>
           {draft.program.items.map((item, index) => (
@@ -774,7 +794,7 @@ export function SetupStudio() {
           {draft.photos.hero.src ? (
             <div className="photo-edit">
               <img src={draft.photos.hero.src} alt="" />
-              <button className="text-link" type="button" onClick={() => setDraft({ ...draft, photos: { ...draft.photos, hero: { src: "", alt: "" } } })}>Retirer</button>
+              <button className="text-link" type="button" onClick={() => setDraft({ ...draft, photos: { ...draft.photos, hero: { src: "", alt: "" } } })}>Supprimer</button>
             </div>
           ) : null}
           <label className="field">Autres photos
@@ -789,7 +809,7 @@ export function SetupStudio() {
               <label className="field">Remplacer
                 <input type="file" accept="image/*" disabled={busy || (driveConnected && !slug)} onClick={askDrive} onChange={(event) => { void uploadOne(event.target.files?.[0], (url) => replaceGallery(index, url)); event.target.value = ""; }} />
               </label>
-              <button className="text-link" type="button" onClick={() => removeGallery(index)}>Retirer</button>
+              <button className="text-link" type="button" onClick={() => removeGallery(index)}>Supprimer</button>
             </div>
           ) : null)}
           {!driveConnected || !slug ? <p className="note">Connectez Google Drive et enregistrez la fiche avant d'envoyer les photos du site.</p> : null}

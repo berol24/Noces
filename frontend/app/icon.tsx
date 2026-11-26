@@ -13,24 +13,35 @@ export default function Icon() {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "#0f1a33",
+          background: "#f6f1e6",
+          color: "#1b2a4a",
+          fontSize: 40,
+          fontFamily: "Georgia",
         }}
       >
+        <div style={{ display: "flex", marginTop: 8 }}>N</div>
         <div
           style={{
-            width: 30,
-            height: 30,
-            borderRadius: 30,
-            border: "2px solid #a0a0d0",
-            marginRight: -12,
+            display: "flex",
+            position: "absolute",
+            top: 8,
+            right: 8,
+            width: 16,
+            height: 16,
+            borderRadius: 16,
+            border: "1.5px solid #a9b4ee",
           }}
         />
         <div
           style={{
-            width: 30,
-            height: 30,
-            borderRadius: 30,
-            border: "2px solid #8080c0",
+            display: "flex",
+            position: "absolute",
+            top: 6,
+            right: 18,
+            width: 16,
+            height: 16,
+            borderRadius: 16,
+            border: "1.5px solid #8e97d8",
           }}
         />
       </div>
