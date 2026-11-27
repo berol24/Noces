@@ -8,6 +8,7 @@ import { ButtonSpinner, PageLoader } from "@/components/Spinner";
 import { applyColors, customPalette, paletteOf } from "@/lib/theme";
 import { blankWedding, designs } from "@/lib/blank";
 import { PhotoPreview } from "@/components/PhotoPreview";
+import { musicTitle } from "@/lib/music-title";
 import { asTime, ceremonyQuery, coupleFullLine, coupleSlug, inviteUrl, mapUrl, shareMessage, shareTitle, slugify } from "@/lib/text";
 
 type Step = "compte" | "design" | "fiche";
@@ -305,7 +306,7 @@ export function SetupStudio() {
         return;
       }
       const token = await ensureAccess();
-      window.location.href = `${API}/api/drive/connect?token=${encodeURIComponent(token || "")}`;
+      window.location.href = `${API}/api/drive/connect?token=${encodeURIComponent(token || "")}&return=${encodeURIComponent(window.location.origin)}`;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Connexion à Google Drive impossible");
     }
@@ -326,7 +327,7 @@ export function SetupStudio() {
     });
   }
 
-  async function uploadOne(key: string, file: File | undefined, apply: (url: string) => void, kind: "photo" | "musique" = "photo") {
+  async function uploadOne(key: string, file: File | undefined, apply: (url: string, name?: string) => void, kind: "photo" | "musique" = "photo") {
     if (!file) return;
     if (!slug || !driveConnected) {
       patchSlot(key, {
@@ -338,21 +339,23 @@ export function SetupStudio() {
       });
       return;
     }
-    patchSlot(key, { name: file.name, progress: 8, error: "" });
+    const title = kind === "musique" ? await musicTitle(file) : file.name;
+    patchSlot(key, { name: title, progress: 8, error: "" });
     setBusy(true);
     try {
-      const body = await uploadFiles<{ photos: { id: string }[] }>("/api/drive/me", [file], (ratio) => {
+      const path = kind === "musique" ? "/api/drive/me?kind=musique" : "/api/drive/me";
+      const body = await uploadFiles<{ photos: { id: string }[] }>(path, [file], (ratio) => {
         patchSlot(key, { progress: Math.max(8, Math.round(ratio * 100)) });
       });
       const id = body.photos[0]?.id;
       if (!id) throw new Error("Le fichier n'a pas été enregistré.");
-      apply(driveFileUrl(id));
-      patchSlot(key, { name: file.name, progress: null, error: "" });
+      apply(driveFileUrl(id), title);
+      patchSlot(key, { name: title, progress: null, error: "" });
     } catch (cause) {
       const message = cause instanceof Error ? cause.message : "Envoi impossible";
       if (/reconnectez/i.test(message)) setDriveConnected(false);
       patchSlot(key, {
-        name: file.name,
+        name: title,
         progress: null,
         error: message,
       });
@@ -1079,15 +1082,21 @@ export function SetupStudio() {
           <FilePick
             label="Fichier musical"
             accept="audio/*"
-            onPick={(files) => { void uploadOne("music", files?.[0], (url) => setDraft((current) => ({ ...current, music: { ...current.music, background: { enabled: true, src: url } } })), "musique"); }}
+            onPick={(files) => {
+              void uploadOne("music", files?.[0], (url, name) => setDraft((current) => ({
+                ...current,
+                music: { ...current.music, background: { enabled: true, src: url, name: name || "Morceau" } },
+              })), "musique");
+            }}
           />
-          <FileSlot id="music" onRemove={() => setDraft({ ...draft, music: { ...draft.music, background: { enabled: false, src: "" } } })} />
+          <FileSlot id="music" onRemove={() => setDraft({ ...draft, music: { ...draft.music, background: { enabled: false, src: "", name: "" } } })} />
+          {draft.music.background.name ? <p className="music-title">{draft.music.background.name}</p> : null}
           {draft.music.background.src ? (
             <div className="music-actions">
               <audio ref={musicRef} src={draft.music.background.src} preload="none" />
               <button className="line-btn" type="button" onClick={() => void musicRef.current?.play()}>Lecture</button>
               <button className="line-btn" type="button" onClick={() => musicRef.current?.pause()}>Pause</button>
-              <button className="text-link" type="button" onClick={() => { setDraft({ ...draft, music: { ...draft.music, background: { enabled: false, src: "" } } }); clearSlot("music"); }}>Supprimer</button>
+              <button className="text-link" type="button" onClick={() => { setDraft({ ...draft, music: { ...draft.music, background: { enabled: false, src: "", name: "" } } }); clearSlot("music"); }}>Supprimer</button>
             </div>
           ) : null}
 

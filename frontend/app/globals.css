@@ -2306,6 +2306,16 @@ body:has(.setup-account) .legal-foot {
   margin-top: 12px;
 }
 
+.music-title {
+  margin: 12px 0 0;
+  color: var(--ink);
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 22px;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: none;
+}
+
 .dress-row,
 .photo-edit {
   padding: 12px;

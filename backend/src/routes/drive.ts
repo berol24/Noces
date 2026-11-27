@@ -3,6 +3,7 @@ import { Router } from "express";
 import jwt from "jsonwebtoken";
 import multer from "multer";
 import { driveFor, googleConfigured, oauthClient } from "../google.js";
+import { safeOrigin } from "../origins.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 import { User } from "../models/User.js";
 import { Wedding } from "../models/Wedding.js";
@@ -10,27 +11,45 @@ import { Wedding } from "../models/Wedding.js";
 export const driveRouter = Router();
 
 const secret = () => process.env.JWT_SECRET || "dev-secret";
-const origin = () => process.env.CLIENT_ORIGIN || "http://localhost:3000";
+const origin = () => safeOrigin(process.env.CLIENT_ORIGIN);
 
-const imageTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif", "image/avif", "image/bmp", "image/heic", "image/heif", "image/tiff"];
+const imageTypes = ["image/jpeg", "image/jpg", "image/pjpeg", "image/x-jpg", "image/png", "image/webp", "image/gif", "image/avif", "image/bmp", "image/heic", "image/heif", "image/tiff"];
 const photoExtensions = [".jpg", ".jpeg", ".png", ".webp", ".gif", ".avif", ".bmp", ".heic", ".heif", ".tif", ".tiff"];
-const audioTypes = ["audio/mpeg", "audio/mp3", "audio/mp4", "audio/x-m4a", "audio/aac", "audio/ogg", "audio/wav", "audio/wave", "audio/webm", "audio/x-wav"];
+const audioExtensions = [".mp3", ".m4a", ".aac", ".ogg", ".wav", ".webm", ".flac", ".aiff", ".aif", ".caf", ".amr", ".3gp", ".mp4"];
+
+function fileType(file: { mimetype?: string }) {
+  return (file.mimetype || "").toLowerCase().split(";")[0].trim();
+}
 
 function isPhoto(file: { mimetype?: string; originalname?: string }) {
-  const type = (file.mimetype || "").toLowerCase().split(";")[0].trim();
+  const type = fileType(file);
   if (type === "image/svg+xml") return false;
   if (imageTypes.includes(type) || type.startsWith("image/")) return true;
   const name = (file.originalname || "").toLowerCase();
   return photoExtensions.some((ext) => name.endsWith(ext));
 }
 
+function isAudio(file: { mimetype?: string; originalname?: string }) {
+  const type = fileType(file);
+  if (type.startsWith("audio/")) return true;
+  if (["video/mp4", "video/quicktime", "application/mp4"].includes(type)) return true;
+  const name = (file.originalname || "").toLowerCase();
+  return audioExtensions.some((ext) => name.endsWith(ext));
+}
+
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024, files: 24 },
-  fileFilter: (_req, file, callback) => {
-    const name = file.originalname.toLowerCase();
-    const audioName = [".mp3", ".m4a", ".aac", ".ogg", ".wav", ".webm"].some((ext) => name.endsWith(ext));
-    if (isPhoto(file) || audioTypes.includes(file.mimetype) || audioName) callback(null, true);
+  fileFilter: (req, file, callback) => {
+    const kind = String(req.query.kind || "");
+    if (kind === "musique") {
+      const type = fileType(file);
+      const loose = !type || type === "application/octet-stream";
+      if (isAudio(file) || loose) callback(null, true);
+      else callback(new Error("musique"));
+      return;
+    }
+    if (isPhoto(file) || isAudio(file)) callback(null, true);
     else callback(new Error(`type:${file.mimetype || "inconnu"}`));
   },
 });
@@ -48,11 +67,15 @@ function acceptPhotos(req: AuthRequest, res: import("express").Response, next: i
         res.status(400).json({ error: "Ajoutez au plus 24 photos à la fois." });
         return;
       }
-      if (message.startsWith("type:")) {
-        res.status(400).json({ error: "Format non accepté. Choisissez des photos JPEG, PNG ou WebP." });
+      if (message === "musique") {
+        res.status(400).json({ error: "Format non accepté. Choisissez un morceau MP3, M4A, AAC ou WAV." });
         return;
       }
-      res.status(400).json({ error: "Choisissez une image ou une musique (mp3, m4a, wav), 20 Mo maximum." });
+      if (message.startsWith("type:")) {
+        res.status(400).json({ error: "Format non accepté. Choisissez une photo JPG, JPEG, PNG ou WebP." });
+        return;
+      }
+      res.status(400).json({ error: "Choisissez une image JPG, JPEG, PNG ou WebP, ou une musique MP3, M4A ou WAV. 20 Mo maximum." });
       return;
     }
     next();
@@ -218,7 +241,7 @@ driveRouter.get("/connect", (req, res) => {
   try {
     const payload = jwt.verify(token, secret());
     if (typeof payload === "string" || !payload.sub || payload.typ === "refresh") throw new Error("bad");
-    const state = jwt.sign({ sub: payload.sub, purpose: "drive" }, secret(), { expiresIn: "10m" });
+    const state = jwt.sign({ sub: payload.sub, purpose: "drive", return: safeOrigin(req.query.return) }, secret(), { expiresIn: "10m" });
     const url = oauthClient().generateAuthUrl({
       access_type: "offline",
       prompt: "select_account consent",
@@ -232,8 +255,8 @@ driveRouter.get("/connect", (req, res) => {
 });
 
 driveRouter.get("/callback", async (req, res) => {
-  const fail = (message: string) => {
-    res.redirect(`${origin()}/?drive=error&message=${encodeURIComponent(message)}`);
+  const fail = (message: string, back = origin()) => {
+    res.redirect(`${back}/?drive=error&message=${encodeURIComponent(message)}`);
   };
   const code = typeof req.query.code === "string" ? req.query.code : "";
   const state = typeof req.query.state === "string" ? req.query.state : "";
@@ -247,10 +270,11 @@ driveRouter.get("/callback", async (req, res) => {
       fail("Session expirée. Reconnectez Google Drive.");
       return;
     }
+    const back = safeOrigin(payload.return);
     const client = oauthClient();
     const { tokens } = await client.getToken(code);
     if (!tokens.refresh_token) {
-      fail("Google n'a pas renvoyé d'autorisation durable. Réessayez.");
+      fail("Google n'a pas renvoyé d'autorisation durable. Réessayez.", back);
       return;
     }
     await User.updateOne({ _id: payload.sub }, { googleRefreshToken: tokens.refresh_token });
@@ -262,7 +286,7 @@ driveRouter.get("/callback", async (req, res) => {
         console.error(error instanceof Error ? error.message : error);
       }
     }
-    res.redirect(`${origin()}/?drive=connected`);
+    res.redirect(`${back}/?drive=connected`);
   } catch (error) {
     console.error(error instanceof Error ? error.message : error);
     fail("Connexion à Google Drive impossible.");

@@ -129,7 +129,7 @@ export type WeddingConfig = {
     items: ProgramItem[];
   };
   music: {
-    background: { enabled: boolean; src: string };
+    background: { enabled: boolean; src: string; name?: string };
     songs: Song[];
   };
   /** Id d'un modèle, ou "personnalise" pour utiliser `colors`. */
