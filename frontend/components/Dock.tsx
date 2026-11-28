@@ -6,6 +6,7 @@ import { IconButton } from "@/components/art";
 import { useAudio } from "@/components/audio";
 import { useWedding } from "@/components/wedding-context";
 import { inviteUrl, shareMessage, shareTitle } from "@/lib/text";
+import { useLocale } from "@/lib/locale";
 
 export function Dock() {
   const wedding = useWedding();

@@ -71,7 +71,7 @@ export function shareText(data: WeddingConfig = wedding) {
   return data.seo?.shareText || `${fullDate(data)} · ${placeLine(data)} · ${familiesLine(data)}`;
 }
 
-export const publishedSite = "https://noces-7hjy.onrender.com";
+export const publishedSite = "https://noces-mariage.vercel.app";
 
 export function siteOrigin() {
   if (typeof window !== "undefined") {
@@ -83,6 +83,10 @@ export function siteOrigin() {
 
 export function inviteUrl(slug: string) {
   return `${siteOrigin()}/i/${slug}`;
+}
+
+export function messageUrl(slug: string) {
+  return `${inviteUrl(slug)}?livre=1`;
 }
 
 export function shareMessage(data: WeddingConfig, url: string) {

@@ -152,6 +152,10 @@ export type WeddingConfig = {
     gallery: GalleryPhoto[];
     signature: string;
   };
+  meals?: {
+    note?: string;
+    items: { name: string; detail: string }[];
+  };
   gifts: {
     enabled: boolean;
     subtitle: string;

@@ -15,6 +15,67 @@ type Step = "compte" | "design" | "fiche";
 type Account = { email: string; name: string };
 type Mode = "register" | "login" | "forgot";
 
+const hours = Array.from({ length: 24 }, (_, index) => String(index).padStart(2, "0"));
+const minutes = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
+
+function TimeField({ value, onChange, allowEmpty = false }: { value: string; onChange: (value: string) => void; allowEmpty?: boolean }) {
+  const parsed = asTime(value);
+  const [hour, minute] = parsed ? parsed.split(":") : ["", ""];
+  const [open, setOpen] = useState<"" | "hour" | "minute">("");
+  const root = useRef<HTMLSpanElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function close(event: MouseEvent) {
+      if (!root.current?.contains(event.target as Node)) setOpen("");
+    }
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  function pick(nextHour: string, nextMinute: string) {
+    if (!nextHour && !nextMinute) onChange("");
+    else onChange(`${nextHour || "00"}:${nextMinute || "00"}`);
+    setOpen("");
+  }
+
+  return (
+    <span className="time-field" ref={root}>
+      <span className="time-part">
+        <button type="button" aria-label="Heure" aria-expanded={open === "hour"} onClick={() => setOpen(open === "hour" ? "" : "hour")}>
+          {hour || "—"}
+        </button>
+        {open === "hour" ? (
+          <span className="time-list" role="listbox" aria-label="Heures">
+            {allowEmpty ? <button type="button" onClick={() => pick("", "")}>—</button> : null}
+            {hours.map((item) => (
+              <button type="button" key={item} className={item === hour ? "on" : ""} onClick={() => pick(item, minute)}>
+                {item}
+              </button>
+            ))}
+          </span>
+        ) : null}
+      </span>
+      <span aria-hidden="true">:</span>
+      <span className="time-part">
+        <button type="button" aria-label="Minutes" aria-expanded={open === "minute"} onClick={() => setOpen(open === "minute" ? "" : "minute")}>
+          {minute || "—"}
+        </button>
+        {open === "minute" ? (
+          <span className="time-list minutes" role="listbox" aria-label="Minutes">
+            {allowEmpty ? <button type="button" onClick={() => pick("", "")}>—</button> : null}
+            {minutes.map((item) => (
+              <button type="button" key={item} className={item === minute ? "on" : ""} onClick={() => pick(hour, item)}>
+                {item}
+              </button>
+            ))}
+          </span>
+        ) : null}
+      </span>
+    </span>
+  );
+}
+
 function PasswordInput({
   value,
   onChange,
@@ -66,6 +127,7 @@ export function SetupStudio() {
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [draft, setDraft] = useState<WeddingConfig>(() => blankWedding("classique"));
+  const [baseline, setBaseline] = useState<{ draft: WeddingConfig; day: string; month: string; year: string; time: string; slug: string } | null>(null);
   const [dateValue, setDateValue] = useState("2026-06-27");
   const [dayPart, setDayPart] = useState("27");
   const [monthPart, setMonthPart] = useState("6");
@@ -92,6 +154,12 @@ export function SetupStudio() {
   const [copied, setCopied] = useState(false);
   const musicRef = useRef<HTMLAudioElement>(null);
 
+  function readDateParts(iso: string) {
+    const match = iso.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2})/);
+    if (!match) return { day: dayPart, month: monthPart, year: yearPart, time: timeValue };
+    return { day: String(Number(match[3])), month: String(Number(match[2])), year: match[1], time: match[4] };
+  }
+
   function applySavedDate(iso: string) {
     const match = iso.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
     if (!match) return;
@@ -116,14 +184,20 @@ export function SetupStudio() {
       return;
     }
     if (saved.wedding?.config) {
-      setDraft({ ...saved.wedding.config, designId: saved.wedding.designId });
+      const config = { ...saved.wedding.config, designId: saved.wedding.designId };
+      const parts = readDateParts(config.date?.iso || "");
+      setDraft(config);
       setSlug(saved.wedding.slug);
       setSlugInput(saved.wedding.slug);
       setSlugEdited(true);
-      applySavedDate(saved.wedding.config.date?.iso || "");
-      applyColors(paletteOf(saved.wedding.config));
+      applySavedDate(config.date?.iso || "");
+      setBaseline({ draft: config, ...parts, slug: saved.wedding.slug });
+      applyColors(paletteOf(config));
       setStep("fiche");
     } else {
+      const blank = blankWedding("classique");
+      setDraft(blank);
+      setBaseline({ draft: blank, day: "27", month: "6", year: "2026", time: "09:00", slug: coupleSlug(blank) });
       setStep("design");
     }
   }
@@ -135,8 +209,13 @@ export function SetupStudio() {
     setSlugInput("");
     setSlugEdited(false);
     setFolderUrl("");
-    setDraft(blankWedding("classique"));
+    const blank = blankWedding("classique");
+    setDraft(blank);
+    setBaseline({ draft: blank, day: "27", month: "6", year: "2026", time: "09:00", slug: coupleSlug(blank) });
     setDateValue("2026-06-27");
+    setDayPart("27");
+    setMonthPart("6");
+    setYearPart("2026");
     setTimeValue("09:00");
     setMessage("");
     setError("");
@@ -439,15 +518,12 @@ export function SetupStudio() {
       setSlugInput(saved.slug);
       setSlugEdited(true);
       setDraft(config);
+      setBaseline({ draft: config, day: dayPart, month: monthPart, year: yearPart, time: timeValue, slug: saved.slug });
       if (driveConnected) {
         const link = await api<{ url: string }>("/api/drive/me/link");
         setFolderUrl(link.url);
       }
-      setPopup(
-        config.guestAlbum.href
-          ? "Votre invitation est enregistrée. « Ajouter mes photos » ouvre votre album Google Photos, avec les photos déjà présentes."
-          : "Votre invitation est enregistrée. Ajoutez encore le lien de votre album Google Photos pour que les invités voient et déposent les photos.",
-      );
+      setPopup("Votre invitation est enregistrée.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Enregistrement impossible");
     } finally {
@@ -558,6 +634,59 @@ export function SetupStudio() {
           <em>{hint || (accept.startsWith("audio") ? "Choisir un morceau" : multiple ? "Ajouter des photos" : "Choisir une photo")}</em>
         </span>
       </label>
+    );
+  }
+
+  function changed(current: unknown, saved: unknown) {
+    return Boolean(baseline) && JSON.stringify(current) !== JSON.stringify(saved);
+  }
+
+  const savedDraft = baseline?.draft;
+  const dirty = {
+    design: changed(draft.designId, savedDraft?.designId),
+    couple: changed({ couple: draft.couple, families: draft.families }, savedDraft && { couple: savedDraft.couple, families: savedDraft.families }),
+    date: changed(
+      { day: dayPart, month: monthPart, year: yearPart, time: timeValue, city: draft.date.city, country: draft.date.country },
+      baseline && { day: baseline.day, month: baseline.month, year: baseline.year, time: baseline.time, city: savedDraft?.date.city, country: savedDraft?.date.country },
+    ),
+    places: changed(draft.ceremonies, savedDraft?.ceremonies),
+    entrance: changed(
+      { photo: draft.entrance.photo, focus: draft.entrance.photoFocus },
+      savedDraft && { photo: savedDraft.entrance.photo, focus: savedDraft.entrance.photoFocus },
+    ),
+    texts: changed(
+      { invitation: draft.invitation, photo: draft.invitationPhoto, focus: draft.invitationPhotoFocus, passages: draft.story.passages, verse: draft.verse },
+      savedDraft && { invitation: savedDraft.invitation, photo: savedDraft.invitationPhoto, focus: savedDraft.invitationPhotoFocus, passages: savedDraft.story.passages, verse: savedDraft.verse },
+    ),
+    program: changed(draft.program.items, savedDraft?.program.items),
+    colors: changed(
+      { choice: draft.colorChoice, background: draft.colors.background, text: draft.colors.text, accent: draft.colors.accent },
+      savedDraft && { choice: savedDraft.colorChoice, background: savedDraft.colors.background, text: savedDraft.colors.text, accent: savedDraft.colors.accent },
+    ),
+    dress: changed(draft.dressCode, savedDraft?.dressCode),
+    photos: changed(
+      { hero: draft.photos.hero, gallery: draft.photos.gallery },
+      savedDraft && { hero: savedDraft.photos.hero, gallery: savedDraft.photos.gallery },
+    ),
+    album: changed(draft.guestAlbum.href, savedDraft?.guestAlbum.href),
+    meals: changed(draft.meals || null, savedDraft?.meals || null),
+    gifts: changed(draft.gifts.text, savedDraft?.gifts.text),
+    music: changed(draft.music.background, savedDraft?.music.background),
+    share: changed(
+      { slug: proposedSlug(), text: draft.seo?.shareText || "" },
+      baseline && { slug: baseline.slug, text: savedDraft?.seo?.shareText || "" },
+    ),
+  };
+
+  function BlockSave({ on }: { on: boolean }) {
+    return (
+      <div className="block-save">
+        {on ? <p className="note">Modification non enregistrée</p> : null}
+        {on && error ? <p className="warning">{error}</p> : null}
+        <button className={on ? "line-btn save-block is-dirty" : "line-btn save-block"} type="button" disabled={!on || busy} onClick={() => void save()}>
+          {busy && on ? "Enregistrement" : "Enregistrer"}
+        </button>
+      </div>
     );
   }
 
@@ -724,6 +853,7 @@ export function SetupStudio() {
               </button>
             ))}
           </div>
+          <BlockSave on={dirty.design} />
           <button className="line-btn" type="button" onClick={() => setStep("fiche")}>Renseigner le mariage</button>
         </section>
       ) : null}
@@ -760,6 +890,7 @@ export function SetupStudio() {
               <input value={draft.families[1] || ""} onChange={(event) => setDraft({ ...draft, families: [draft.families[0] || "", event.target.value] })} />
             </label>
           </div>
+          <BlockSave on={dirty.couple} />
 
           <h2>Google Drive</h2>
           <p className="note">
@@ -788,7 +919,7 @@ export function SetupStudio() {
           )}
 
           <h2>Date du mariage</h2>
-          <p className="note">Cette date lance le compte à rebours et l'ajout à l'agenda.</p>
+          <p className="note">Cette date lance le compte à rebours et l'ajout à l'agenda. La ville et le pays sont ceux de votre mariage : ils s'affichent sur l'invitation et tout en bas de la page.</p>
           <div className="date-parts">
             <label className="field">Jour
               <input inputMode="numeric" maxLength={2} value={dayPart} onChange={(event) => writeDate(event.target.value, monthPart, yearPart)} />
@@ -805,15 +936,19 @@ export function SetupStudio() {
           ) : null}
           <div className="setup-grid">
             <label className="field">Heure de début
-              <input type="time" value={timeValue} onChange={(event) => setTimeValue(event.target.value)} />
+              <TimeField value={timeValue} onChange={setTimeValue} />
             </label>
-            <label className="field">Ville
-              <input value={draft.date.city} onChange={(event) => setDraft({ ...draft, date: { ...draft.date, city: event.target.value } })} />
+            <label className="field">Ville du mariage
+              <input placeholder="Votre ville" value={draft.date.city} onChange={(event) => setDraft({ ...draft, date: { ...draft.date, city: event.target.value } })} />
             </label>
-            <label className="field">Pays
-              <input value={draft.date.country} onChange={(event) => setDraft({ ...draft, date: { ...draft.date, country: event.target.value } })} />
+            <label className="field">Pays du mariage
+              <input placeholder="Votre pays" value={draft.date.country} onChange={(event) => setDraft({ ...draft, date: { ...draft.date, country: event.target.value } })} />
             </label>
           </div>
+          <p className="note">
+            Ligne du bas : Fait avec ♡ · {draft.date.city || "votre ville"}, {draft.date.country || "votre pays"} · {yearPart || "année"}
+          </p>
+          <BlockSave on={dirty.date} />
 
           <h2>Lieux et carte</h2>
           <p className="note">L'adresse ouvre « Voir sur la carte » pour les invités. Un lien Google Maps reste possible.</p>
@@ -826,7 +961,7 @@ export function SetupStudio() {
                     <input value={ceremony.title} onChange={(event) => updateCeremony(index, { title: event.target.value })} />
                   </label>
                   <label className="field">Heure
-                    <input type="time" value={asTime(ceremony.time)} onChange={(event) => updateCeremony(index, { time: event.target.value })} />
+                    <TimeField allowEmpty value={asTime(ceremony.time)} onChange={(time) => updateCeremony(index, { time })} />
                   </label>
                   <label className="field">Lieu
                     <input value={ceremony.venue} onChange={(event) => updateCeremony(index, { venue: event.target.value })} />
@@ -839,7 +974,7 @@ export function SetupStudio() {
                   <input value={/^https?:\/\//i.test(ceremony.mapQuery) ? ceremony.mapQuery : ""} onChange={(event) => updateCeremony(index, { mapQuery: event.target.value })} />
                 </label>
                 {query ? (
-                  <a href={mapUrl(query)} target="_blank" rel="noreferrer">Voir sur la carte</a>
+                  <a className="map-link" href={mapUrl(query)} target="_blank" rel="noreferrer">Voir sur la carte</a>
                 ) : (
                   <p className="note">Indiquez l'adresse pour afficher la carte.</p>
                 )}
@@ -849,6 +984,7 @@ export function SetupStudio() {
           <button className="text-link" type="button" onClick={() => setDraft({ ...draft, ceremonies: [...draft.ceremonies, { title: "", time: "", venue: "", address: "", mapQuery: "" }] })}>
             Ajouter un lieu
           </button>
+          <BlockSave on={dirty.places} />
 
           <h2>Photo d'arrivée</h2>
           <p className="note">Elle apparaît sur le premier écran, avant d'entrer dans la cérémonie. Vous pouvez la remplacer.</p>
@@ -866,6 +1002,7 @@ export function SetupStudio() {
               onRemove={() => setDraft({ ...draft, entrance: { ...draft.entrance, photo: "", photoFocus: "" } })}
             />
           ) : null}
+          <BlockSave on={dirty.entrance} />
 
           <h2>Textes</h2>
           <p className="note">Chaque texte peut avoir une photo. Sur l'invitation, elles se placent différemment : au-dessus, à gauche, à droite, puis à côté du verset.</p>
@@ -946,12 +1083,13 @@ export function SetupStudio() {
               onRemove={() => setDraft({ ...draft, verse: { ...draft.verse, photo: "", photoFocus: "" } })}
             />
           ) : null}
+          <BlockSave on={dirty.texts} />
 
           <h2>Programme</h2>
           {draft.program.items.map((item, index) => (
             <div className="setup-grid setup-card" key={`program-${index}`}>
               <label className="field">Heure
-                <input type="time" value={asTime(item.time)} onChange={(event) => updateProgram(index, { time: event.target.value })} />
+                <TimeField allowEmpty value={asTime(item.time)} onChange={(time) => updateProgram(index, { time })} />
               </label>
               <label className="field">Étape
                 <input value={item.title} onChange={(event) => updateProgram(index, { title: event.target.value })} />
@@ -962,6 +1100,7 @@ export function SetupStudio() {
           <button className="hint" type="button" onClick={() => setDraft({ ...draft, program: { ...draft.program, items: [...draft.program.items, { time: "", title: "", icon: "✦", highlight: false }] } })} style={{ background: "none", border: 0, cursor: "pointer" }}>
             Ajouter une étape
           </button>
+          <BlockSave on={dirty.program} />
 
           <h2>Couleurs du site</h2>
           <p className="note">Ces palettes colorent toute l'invitation. Elles sont séparées des couleurs de tenue.</p>
@@ -984,6 +1123,7 @@ export function SetupStudio() {
               <input type="color" value={draft.colors.accent} onChange={(event) => paintCustom({ accent: event.target.value })} />
             </label>
           </div>
+          <BlockSave on={dirty.colors} />
 
           <h2>Dress code</h2>
           <p className="note">Choisissez une couleur, puis écrivez son nom en dessous. Les invités s'en servent pour se repérer.</p>
@@ -1002,6 +1142,7 @@ export function SetupStudio() {
           <button className="text-link" type="button" onClick={() => setDraft({ ...draft, dressCode: { ...draft.dressCode, enabled: true, colors: [...draft.dressCode.colors, { name: "", hex: "#1b3a5f" }] } })}>
             Ajouter une couleur
           </button>
+          <BlockSave on={dirty.dress} />
 
           <h2>Photos affichées</h2>
           <p className="note">
@@ -1053,6 +1194,7 @@ export function SetupStudio() {
             </div>
           ) : null)}
           {!driveConnected || !slug ? <p className="note">Connectez Google Drive et enregistrez la fiche avant d'envoyer les photos du site.</p> : null}
+          <BlockSave on={dirty.photos} />
 
           <h2>Album Google Photos des invités</h2>
           <p className="note">
@@ -1071,11 +1213,34 @@ export function SetupStudio() {
               Aperçu : <a href={draft.guestAlbum.href} target="_blank" rel="noreferrer">ouvrir l'album</a>
             </p>
           ) : null}
+          <BlockSave on={dirty.album} />
+
+          <h2>Repas</h2>
+          <p className="note">Ajoutez une catégorie, par exemple entrée, plat de résistance ou dessert, puis le détail (salade, …). S'il n'y a aucune catégorie, cette partie n'apparaît pas.</p>
+          <label className="field">Un mot au-dessus de la liste, si besoin
+            <textarea rows={2} value={draft.meals?.note || ""} onChange={(event) => setDraft({ ...draft, meals: { note: event.target.value, items: draft.meals?.items || [] } })} />
+          </label>
+          {(draft.meals?.items || []).map((item, index) => (
+            <div className="setup-grid setup-card" key={`meal-${index}`}>
+              <label className="field">Catégorie
+                <input value={item.name} placeholder="Entrée" onChange={(event) => updateMeal(index, { name: event.target.value })} />
+              </label>
+              <label className="field">Détail
+                <textarea rows={3} value={item.detail} placeholder="Salade, crudités…" onChange={(event) => updateMeal(index, { detail: event.target.value })} />
+              </label>
+              <button className="text-link" type="button" onClick={() => updateMeal(index, null)}>Retirer</button>
+            </div>
+          ))}
+          <button className="text-link" type="button" onClick={() => setDraft({ ...draft, meals: { note: draft.meals?.note || "", items: [...(draft.meals?.items || []), { name: "", detail: "" }] } })}>
+            Ajouter une catégorie
+          </button>
+          <BlockSave on={dirty.meals} />
 
           <h2>Cadeaux</h2>
           <label className="field">Message pour expliquer comment offrir un cadeau
             <textarea rows={3} value={draft.gifts.text} onChange={(event) => setDraft({ ...draft, gifts: { ...draft.gifts, text: event.target.value } })} />
           </label>
+          <BlockSave on={dirty.gifts} />
 
           <h2>Musique de fond</h2>
           <p className="note">Le fichier est enregistré dans votre Google Drive. Connectez d'abord votre compte Google. Vous pouvez le remplacer. Sur l'invitation, lecture et pause sont à gauche.</p>
@@ -1099,6 +1264,12 @@ export function SetupStudio() {
               <button className="text-link" type="button" onClick={() => { setDraft({ ...draft, music: { ...draft.music, background: { enabled: false, src: "", name: "" } } }); clearSlot("music"); }}>Supprimer</button>
             </div>
           ) : null}
+          <BlockSave on={dirty.music} />
+
+          <h2>Messages des invités</h2>
+          <p className="note">Le livre d'or s'ouvre sur une page à part. Les invités ne voient pas les messages des autres.</p>
+          <a className="line-btn" href="/commencer/messages">Voir les messages</a>
+          <a className="line-btn" href="/commencer/qr">QR code à imprimer</a>
 
           <h2>Lien à partager</h2>
           <p className="note">Le nom reprend les prénoms. Vous pouvez le changer : l'adresse se met à jour tout de suite, et Enregistrer la conserve.</p>
@@ -1126,12 +1297,9 @@ export function SetupStudio() {
           </label>
           <p className="kicker">Aperçu</p>
           <pre className="share-preview">{shareMessage(draft, inviteUrl(proposedSlug()))}</pre>
+          <BlockSave on={dirty.share} />
 
-          {error ? <p className="warning">{error}</p> : null}
           {message ? <p className="note">{message}</p> : null}
-          <button className="line-btn" type="button" onClick={() => void save()} disabled={busy}>
-            {busy ? "Enregistrement" : "Enregistrer"}
-          </button>
           {slug ? (
             <>
               <p className="prose">
@@ -1171,25 +1339,21 @@ export function SetupStudio() {
           <div>
             <p className="kicker">Enregistré</p>
             <p className="prose">{popup}</p>
-            {slug ? (
-              <>
-                <p className="note">{inviteUrl(slug)}</p>
-                <a className="line-btn" href={`/i/${slug}`}>Voir l'invitation</a>
-                <div className="share-row">
-                  <a href={shareLinks().whatsapp} target="_blank" rel="noreferrer">WhatsApp</a>
-                  <a href={shareLinks().mail}>E-mail</a>
-                  <a href={shareLinks().sms}>SMS</a>
-                  <button type="button" onClick={() => void copyInvite()}>Copier le lien</button>
-                </div>
-              </>
-            ) : null}
-            <button className="text-link" type="button" onClick={() => setPopup("")}>Fermer</button>
+            <button className="line-btn save-block is-dirty" type="button" onClick={() => setPopup("")}>Fermer</button>
           </div>
         </div>
       ) : null}
       {copied ? <p className="toast">Lien copié</p> : null}
     </div>
   );
+
+  function updateMeal(index: number, patch: Partial<{ name: string; detail: string }> | null) {
+    const items = draft.meals?.items || [];
+    const next = patch
+      ? items.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item))
+      : items.filter((_, itemIndex) => itemIndex !== index);
+    setDraft({ ...draft, meals: { note: draft.meals?.note || "", items: next } });
+  }
 
   function updateCeremony(index: number, patch: Partial<WeddingConfig["ceremonies"][number]>) {
     const ceremonies = draft.ceremonies.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item));

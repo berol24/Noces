@@ -2,6 +2,7 @@ import { Router } from "express";
 import { z } from "zod";
 import { folderLinkFor } from "./drive.js";
 import { Wedding } from "../models/Wedding.js";
+import { GuestNote } from "../models/GuestNote.js";
 import { requireAuth, type AuthRequest } from "../middleware/auth.js";
 
 export const weddingRouter = Router();
@@ -71,6 +72,68 @@ weddingRouter.get("/public/:slug", async (req, res) => {
   const config = JSON.parse(JSON.stringify(wedding.config));
   config.drive = { slug: wedding.slug, connected: Boolean(folderUrl) };
   res.json({ slug: wedding.slug, designId: wedding.designId, config });
+});
+
+weddingRouter.get("/me/notes", requireAuth, async (req: AuthRequest, res) => {
+  const wedding = await Wedding.findOne({ userId: req.userId });
+  if (!wedding) {
+    res.json({ notes: [] });
+    return;
+  }
+  const notes = await GuestNote.find({ weddingId: wedding._id }).sort({ createdAt: -1 }).limit(300);
+  res.json({
+    notes: notes.map((note) => ({
+      id: String(note._id),
+      kind: note.kind,
+      name: note.name,
+      message: note.message,
+      menu: note.menu,
+      createdAt: note.createdAt,
+    })),
+  });
+});
+
+weddingRouter.post("/public/:slug/notes", async (req, res) => {
+  const wedding = await Wedding.findOne({ slug: req.params.slug });
+  if (!wedding) {
+    res.status(404).json({ error: "Invitation introuvable" });
+    return;
+  }
+  const parsed = z
+    .object({
+      kind: z.enum(["book", "meal"]),
+      name: z.string().trim().min(1).max(80),
+      message: z.string().trim().max(800).optional(),
+      menu: z.string().trim().max(80).optional(),
+    })
+    .safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: "Indiquez votre nom, et un message ou un menu." });
+    return;
+  }
+  const message = parsed.data.message || "";
+  const menu = parsed.data.menu || "";
+  if (parsed.data.kind === "book" && !message) {
+    res.status(400).json({ error: "Écrivez un message." });
+    return;
+  }
+  if (parsed.data.kind === "meal" && !menu) {
+    res.status(400).json({ error: "Choisissez un menu." });
+    return;
+  }
+  const count = await GuestNote.countDocuments({ weddingId: wedding._id });
+  if (count >= 300) {
+    res.status(400).json({ error: "Le livre est complet." });
+    return;
+  }
+  await GuestNote.create({
+    weddingId: wedding._id,
+    kind: parsed.data.kind,
+    name: parsed.data.name,
+    message,
+    menu,
+  });
+  res.json({ ok: true });
 });
 
 weddingRouter.get("/me", requireAuth, async (req: AuthRequest, res) => {

@@ -6,8 +6,10 @@ import { SectionHeading } from "@/components/art";
 import { Reveal } from "@/components/Reveal";
 import { downloadCalendar, googleCalendarUrl, outlookCalendarUrl } from "@/lib/calendar";
 import { dayKey, fullDate } from "@/lib/text";
+import { useLocale } from "@/lib/locale";
 
 function Units({ target }: { target: number }) {
+  const { t } = useLocale();
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
@@ -19,10 +21,10 @@ function Units({ target }: { target: number }) {
 
   const diff = Math.max(0, target - (now ?? target));
   const parts = [
-    { label: "Jours", value: Math.floor(diff / 86400000) },
-    { label: "Heures", value: Math.floor((diff % 86400000) / 3600000) },
-    { label: "Min", value: Math.floor((diff % 3600000) / 60000) },
-    { label: "Sec", value: Math.floor((diff % 60000) / 1000) },
+    { label: t("days"), value: Math.floor(diff / 86400000) },
+    { label: t("hours"), value: Math.floor((diff % 86400000) / 3600000) },
+    { label: t("minutes"), value: Math.floor((diff % 3600000) / 60000) },
+    { label: t("seconds"), value: Math.floor((diff % 60000) / 1000) },
   ];
 
   return (
@@ -65,6 +67,7 @@ export function CountdownReadout() {
 
 export function Countdown() {
   const wedding = useWedding();
+  const { t } = useLocale();
   const target = new Date(wedding.date.iso).getTime();
   const now = Date.now();
   const started = now >= target;
@@ -73,7 +76,7 @@ export function Countdown() {
   return (
     <section>
       <Reveal from="left">
-        <SectionHeading kicker="Compte à rebours" title={started ? undefined : wedding.countdown.before} />
+        <SectionHeading kicker={t("countdown")} title={started ? undefined : wedding.countdown.before} />
       </Reveal>
       <Reveal from="right">
         {started ? (
@@ -86,13 +89,13 @@ export function Countdown() {
       <Reveal from="left">
         <div className="calendar-choices">
           <a className="line-btn" href={googleCalendarUrl(wedding)} target="_blank" rel="noreferrer">
-            Google Agenda
+            {t("google")}
           </a>
           <a className="line-btn" href={outlookCalendarUrl(wedding)} target="_blank" rel="noreferrer">
-            Outlook
+            {t("outlook")}
           </a>
           <button className="line-btn" type="button" onClick={() => downloadCalendar(wedding)}>
-            Apple et autres
+            {t("apple")}
           </button>
         </div>
       </Reveal>

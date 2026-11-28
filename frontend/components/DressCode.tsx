@@ -4,15 +4,18 @@ import { useWedding } from "@/components/wedding-context";
 import { SectionHeading } from "@/components/art";
 import { Reveal } from "@/components/Reveal";
 
+import { useLocale } from "@/lib/locale";
+
 export function DressCode() {
   const wedding = useWedding();
+  const { t } = useLocale();
   if (!wedding.dressCode.enabled) return null;
   const dress = wedding.dressCode;
 
   return (
     <section>
       <Reveal from="left">
-        <SectionHeading kicker="Code vestimentaire" title={dress.subtitle} />
+        <SectionHeading kicker={t("dress")} title={dress.subtitle} />
       </Reveal>
       <div className="swatches">
         {dress.colors.map((color, index) => (
@@ -26,19 +29,9 @@ export function DressCode() {
       </div>
       {dress.text ? (
         <Reveal from="right">
-          <p className="prose">{dress.text}</p>
+          <p className="dress-consigne">{dress.text}</p>
         </Reveal>
       ) : null}
-      {dress.style ? (
-        <Reveal from="left">
-          <p className="note">{dress.style}</p>
-        </Reveal>
-      ) : null}
-      {dress.warnings.map((warning, index) => (
-        <Reveal from={index % 2 ? "left" : "right"} key={warning}>
-          <p className="warning">{warning}</p>
-        </Reveal>
-      ))}
     </section>
   );
 }

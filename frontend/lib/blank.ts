@@ -34,6 +34,8 @@ export function blankWedding(designId: DesignId = "classique"): WeddingConfig {
   draft.couple.groom = { firstName: "", lastName: "" };
   draft.couple.monogram = { top: "A", bottom: "B" };
   draft.families = ["", ""];
+  draft.date.city = "";
+  draft.date.country = "";
   draft.invitation = "";
   draft.story.passages = [
     { speaker: "groom", quote: "", text: "" },
@@ -51,6 +53,7 @@ export function blankWedding(designId: DesignId = "classique"): WeddingConfig {
   draft.photos.hero = { src: "", alt: "" };
   draft.photos.gallery = [];
   draft.photos.signature = "";
+  draft.meals = { note: "", items: [] };
   draft.music.background = { enabled: false, src: "" };
   draft.music.songs = [];
   draft.gifts.enabled = false;

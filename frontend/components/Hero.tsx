@@ -5,6 +5,7 @@ import { DiamondRule, Monogram, Rings } from "@/components/art";
 import { CountdownReadout } from "@/components/Countdown";
 import { Frame } from "@/components/Frame";
 import { familiesLine } from "@/lib/text";
+import { useLocale } from "@/lib/locale";
 
 export function Hero() {
   const wedding = useWedding();

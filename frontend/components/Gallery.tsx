@@ -6,10 +6,12 @@ import { useWedding } from "@/components/wedding-context";
 import { SectionHeading } from "@/components/art";
 import { Frame } from "@/components/Frame";
 import { Reveal } from "@/components/Reveal";
+import { useLocale } from "@/lib/locale";
 import type { GalleryPhoto } from "@/wedding.config";
 
 export function Gallery() {
   const wedding = useWedding();
+  const { t } = useLocale();
   const photos = wedding.photos.gallery.filter((photo) => photo.src);
   const [active, setActive] = useState<GalleryPhoto | null>(null);
 
@@ -27,7 +29,7 @@ export function Gallery() {
   return (
     <section>
       <Reveal from="left">
-        <SectionHeading kicker="Galerie" title="Nos moments" />
+        <SectionHeading kicker={t("gallery")} title={t("moments")} />
         <p className="signature">— {wedding.photos.signature} —</p>
       </Reveal>
       <div className="grid">
@@ -41,7 +43,7 @@ export function Gallery() {
         ))}
       </div>
       <Reveal>
-        <p className="hint">Cliquez sur une photo pour agrandir</p>
+        <p className="hint">{t("enlarge")}</p>
       </Reveal>
       {active ? createPortal(
         <div className="lightbox" role="dialog" aria-modal="true" aria-label={active.alt} onClick={() => setActive(null)}>

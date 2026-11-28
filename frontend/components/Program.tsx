@@ -3,15 +3,17 @@
 import { useWedding } from "@/components/wedding-context";
 import { SectionHeading } from "@/components/art";
 import { Reveal } from "@/components/Reveal";
+import { useLocale } from "@/lib/locale";
 
 export function Program() {
   const wedding = useWedding();
+  const { t } = useLocale();
   if (!wedding.program.enabled || wedding.program.items.length === 0) return null;
 
   return (
     <section>
       <Reveal from="right">
-        <SectionHeading kicker="Programme" title={wedding.program.subtitle} />
+        <SectionHeading kicker={t("program")} title={wedding.program.subtitle} />
       </Reveal>
       <div className="timeline">
         {wedding.program.items.map((item, index) => (

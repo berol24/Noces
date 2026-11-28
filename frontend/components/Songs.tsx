@@ -5,6 +5,7 @@ import { useWedding } from "@/components/wedding-context";
 import { SectionHeading } from "@/components/art";
 import { useAudio } from "@/components/audio";
 import { Reveal } from "@/components/Reveal";
+import { useLocale } from "@/lib/locale";
 
 function clock(value: number) {
   if (!Number.isFinite(value) || value < 0) return "0:00";

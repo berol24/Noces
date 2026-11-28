@@ -5,9 +5,11 @@ import { SectionHeading } from "@/components/art";
 import { Reveal } from "@/components/Reveal";
 import { focusStyle } from "@/lib/photo";
 import { personName } from "@/lib/text";
+import { useLocale } from "@/lib/locale";
 
 export function Story() {
   const wedding = useWedding();
+  const { t } = useLocale();
   const invitation = wedding.invitation || wedding.invitationPhoto;
   if (!wedding.story.enabled && !wedding.verse.enabled && !invitation) return null;
 
@@ -28,7 +30,7 @@ export function Story() {
       {wedding.story.enabled ? (
         <>
           <Reveal>
-            <SectionHeading kicker="Notre histoire" />
+            <SectionHeading kicker={t("story")} />
           </Reveal>
           {wedding.story.passages.map((passage, index) => (
             <Reveal from={index % 2 ? "right" : "left"} key={`${passage.speaker}-${index}`}>

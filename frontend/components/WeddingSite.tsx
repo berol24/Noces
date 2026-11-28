@@ -15,12 +15,20 @@ import { Gallery } from "@/components/Gallery";
 import { Hero } from "@/components/Hero";
 import { Program } from "@/components/Program";
 import { Songs } from "@/components/Songs";
+import { Meals } from "@/components/Meals";
+import { Guestbook } from "@/components/Guestbook";
+import { LanguageToggle, LocaleProvider } from "@/lib/locale";
+import { EdgeMarquee } from "@/components/EdgeMarquee";
 import { Story } from "@/components/Story";
 
 export function WeddingSite() {
   const wedding = useWedding();
   const [entered, setEntered] = useState(!wedding.entrance.enabled);
   const [themeId, setThemeId] = useState(wedding.colorChoice);
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("livre") === "1") setEntered(true);
+  }, []);
 
   useEffect(() => {
     applyColors(paletteOf(wedding));
@@ -41,9 +49,12 @@ export function WeddingSite() {
   }
 
   return (
+    <LocaleProvider>
     <div data-design={wedding.designId}>
     <AudioProvider>
+      <LanguageToggle />
       <Leaves fixed />
+      <EdgeMarquee />
       {entered ? null : (
         <Entrance onEnter={() => setEntered(true)} themeId={themeId} onTheme={chooseTheme} />
       )}
@@ -54,12 +65,15 @@ export function WeddingSite() {
         <Story />
         <Day />
         <Program />
+        <Meals />
         <DressCode />
         <Gallery />
         <Closing />
       </main>
       {entered ? <Dock /> : null}
+      {entered ? <Guestbook /> : null}
     </AudioProvider>
     </div>
+    </LocaleProvider>
   );
 }

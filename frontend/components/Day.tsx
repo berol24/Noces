@@ -4,6 +4,7 @@ import { useWedding } from "@/components/wedding-context";
 import { SectionHeading } from "@/components/art";
 import { Reveal } from "@/components/Reveal";
 import { ceremonyQuery, fullDate, mapUrl, placeLine } from "@/lib/text";
+import { useLocale } from "@/lib/locale";
 
 function SocialIcon({ label }: { label: string }) {
   const key = label.toLowerCase();
@@ -33,6 +34,7 @@ function SocialIcon({ label }: { label: string }) {
 
 export function Day() {
   const wedding = useWedding();
+  const { t } = useLocale();
   const links = wedding.church.links.filter((link) => link.href && !/facebook/i.test(`${link.label} ${link.href}`));
   const showChurch = wedding.church.enabled && links.length > 0;
 
@@ -55,7 +57,7 @@ export function Day() {
               <p className="address">{ceremony.address}</p>
               {query ? (
                 <a className="map-link" href={mapUrl(query)} target="_blank" rel="noreferrer">
-                  Voir sur la carte →
+                  {t("map")} →
                 </a>
               ) : null}
             </article>

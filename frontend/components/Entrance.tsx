@@ -7,6 +7,7 @@ import { useAudio } from "@/components/audio";
 import { focusStyle } from "@/lib/photo";
 import { familiesLine } from "@/lib/text";
 import { OwnWedding } from "@/components/OwnWedding";
+import { useLocale } from "@/lib/locale";
 
 export function Entrance({
   onEnter,
